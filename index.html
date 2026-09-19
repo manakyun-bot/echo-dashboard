@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#070A0F">
+<title>Dashboard</title>
+<style>
+:root{
+  --bg:#070A0F; --surface:rgba(255,255,255,.055); --line:rgba(255,255,255,.09);
+  --muted:#7E8894; --rain:#6FB4E8; --warm:#E8B06F;
+  --fg:#EEF1F5; --clock-size:200px; --date-size:34px;
+  --vpos:center; --hpos:flex-start; --talign:left;
+  --night-fg:#2A3138;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body{height:100%;background:var(--bg);color:var(--fg);overflow:hidden;position:relative;
+  font-family:"Roboto","Noto Sans CJK JP","Droid Sans Japanese",sans-serif;
+  -webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;}
+
+#screen{position:absolute;top:0;left:0;width:1280px;height:800px;
+  transform-origin:0 0;display:grid;grid-template-columns:1.15fr 1fr;gap:32px;padding:48px 56px;
+  overflow:hidden;}
+body.noweather #screen{grid-template-columns:1fr;}
+body.noweather #right{display:none;}
+
+#left{display:flex;flex-direction:column;justify-content:var(--vpos);align-items:var(--hpos);text-align:var(--talign);}
+
+#clock{font-size:var(--clock-size);font-weight:200;line-height:.92;letter-spacing:-.035em;font-variant-numeric:tabular-nums;}
+#sec{font-size:.32em;font-weight:300;color:var(--muted);letter-spacing:0;margin-left:.06em;}
+body.nosec #sec{display:none;}
+#date{margin-top:22px;font-size:var(--date-size);font-weight:300;color:var(--muted);}
+#dow{color:var(--fg);}
+
+#alert{display:none;margin-top:34px;padding:16px 22px;border-left:3px solid var(--rain);
+  background:rgba(111,180,232,.10);font-size:27px;color:var(--rain);border-radius:0 6px 6px 0;}
+#alert.on{display:block;}
+
+#right{display:flex;flex-direction:column;gap:22px;justify-content:center;}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:26px 30px;}
+#nowRow{display:flex;align-items:center;gap:26px;}
+#icon{width:96px;height:96px;flex:none;}
+#temp{font-size:82px;font-weight:200;line-height:1;font-variant-numeric:tabular-nums;}
+#temp span{font-size:38px;color:var(--muted);}
+#desc{font-size:30px;font-weight:300;margin-top:6px;}
+#hilo{font-size:24px;color:var(--muted);margin-top:10px;}
+#hilo b{font-weight:400;color:var(--fg);}
+#hours{display:flex;justify-content:space-between;}
+.hour{text-align:center;flex:1;}
+.hour .h{font-size:22px;color:var(--muted);}
+.hour svg{width:42px;height:42px;margin:10px 0 6px;}
+.hour .t{font-size:28px;font-weight:300;font-variant-numeric:tabular-nums;}
+.hour .p{font-size:20px;color:var(--rain);min-height:26px;}
+#updated{font-size:21px;color:var(--muted);text-align:right;}
+#updated.stale{color:var(--warm);}
+#note{display:none;font-size:20px;line-height:1.5;color:var(--warm);}
+#note.on{display:block;}
+
+/* 夜間モード */
+body.night #right,body.night #alert{display:none;}
+body.night #screen{grid-template-columns:1fr;place-items:center;padding:0;}
+body.night #left{align-items:center;text-align:center;justify-content:center;}
+body.night #clock{font-size:120px;color:var(--night-fg);}
+body.night #sec{display:none;}
+body.night #date{font-size:24px;color:var(--night-fg);opacity:.6;}
+body.night #dow{color:var(--night-fg);}
+
+/* ===== 設定パネル ===== */
+#panel{position:fixed;inset:0;background:rgba(4,6,10,.94);z-index:50;display:none;
+  overflow-y:auto;padding:36px 44px;-webkit-overflow-scrolling:touch;}
+#panel.on{display:block;}
+#panel h2{font-size:30px;font-weight:300;margin-bottom:6px;}
+#panel .lead{font-size:19px;color:var(--muted);margin-bottom:26px;}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px 40px;}
+.row{display:flex;align-items:center;gap:16px;padding:11px 0;border-bottom:1px solid var(--line);}
+.row label{flex:1;font-size:21px;font-weight:300;}
+.row .val{font-size:19px;color:var(--muted);min-width:66px;text-align:right;font-variant-numeric:tabular-nums;}
+input[type=range]{width:210px;}
+input[type=color]{width:60px;height:36px;background:none;border:1px solid var(--line);border-radius:6px;padding:2px;}
+input[type=number]{width:120px;font-size:19px;padding:7px 9px;background:#12171F;color:var(--fg);
+  border:1px solid var(--line);border-radius:6px;}
+select{font-size:19px;padding:7px 9px;background:#12171F;color:var(--fg);border:1px solid var(--line);border-radius:6px;}
+input[type=checkbox]{width:24px;height:24px;}
+.seg{display:flex;gap:6px;}
+.seg button{font-size:18px;padding:8px 15px;background:#12171F;color:var(--muted);
+  border:1px solid var(--line);border-radius:6px;font-family:inherit;}
+.seg button.sel{background:#243040;color:var(--fg);border-color:#3C4A5C;}
+#panelFoot{display:flex;gap:14px;margin-top:30px;padding-bottom:20px;}
+#panelFoot button{font-size:22px;font-weight:300;padding:14px 30px;border-radius:8px;
+  border:1px solid var(--line);background:#12171F;color:var(--fg);font-family:inherit;}
+#panelFoot .primary{background:#2A6FA8;border-color:#2A6FA8;}
+#panelFoot .ghost{color:var(--muted);}
+.sec{font-size:17px;color:var(--muted);margin:26px 0 4px;}
+#hint{position:fixed;left:0;right:0;bottom:16px;text-align:center;font-size:17px;color:#2A3138;}
+body.night #hint{display:none;}
+</style>
+</head>
+<body>
+
+<div id="screen">
+  <div id="left">
+    <div id="clock">--:--<span id="sec">00</span></div>
+    <div id="date">読み込み中</div>
+    <div id="alert"></div>
+  </div>
+  <div id="right">
+    <div class="card">
+      <div id="nowRow">
+        <div id="icon"></div>
+        <div>
+          <div id="temp">--<span>°</span></div>
+          <div id="desc">天気を取得しています</div>
+        </div>
+      </div>
+      <div id="hilo"></div>
+    </div>
+    <div class="card" id="hours"></div>
+    <div id="updated">未取得</div>
+    <div id="note"></div>
+  </div>
+</div>
+
+<div id="hint">画面を長押しすると設定が開きます</div>
+
+<div id="panel">
+  <h2>設定</h2>
+  <div class="lead">変更はその場で画面に反映されます。保存すると次回も残ります。</div>
+
+  <div class="grid">
+    <div>
+      <div class="sec">時計と日付</div>
+      <div class="row"><label>時計の大きさ</label>
+        <input type="range" id="sClock" min="70" max="340" step="5"><span class="val" id="vClock"></span></div>
+      <div class="row"><label>日付の大きさ</label>
+        <input type="range" id="sDate" min="16" max="90" step="2"><span class="val" id="vDate"></span></div>
+      <div class="row"><label>文字の色</label>
+        <input type="color" id="sFg"><span class="val" id="vFg"></span></div>
+      <div class="row"><label>秒を表示する</label><input type="checkbox" id="sSec"></div>
+
+      <div class="sec">表示位置</div>
+      <div class="row"><label>横</label>
+        <div class="seg" id="segH">
+          <button data-v="flex-start">左</button><button data-v="center">中央</button><button data-v="flex-end">右</button>
+        </div></div>
+      <div class="row"><label>縦</label>
+        <div class="seg" id="segV">
+          <button data-v="flex-start">上</button><button data-v="center">中央</button><button data-v="flex-end">下</button>
+        </div></div>
+    </div>
+
+    <div>
+      <div class="sec">夜間モード</div>
+      <div class="row"><label>夜間モードを使う</label><input type="checkbox" id="sNightOn"></div>
+      <div class="row"><label>開始</label><select id="sNightStart"></select></div>
+      <div class="row"><label>終了</label><select id="sNightEnd"></select></div>
+      <div class="row"><label>夜間の明るさ</label>
+        <input type="range" id="sNightBr" min="0" max="70" step="2"><span class="val" id="vNightBr"></span></div>
+
+      <div class="sec">天気</div>
+      <div class="row"><label>天気を表示する</label><input type="checkbox" id="sWeatherOn"></div>
+      <div class="row"><label>緯度</label><input type="number" id="sLat" step="0.0001"></div>
+      <div class="row"><label>経度</label><input type="number" id="sLon" step="0.0001"></div>
+      <div class="row"><label>更新間隔（分）</label><input type="number" id="sRefresh" min="5" max="120" step="5"></div>
+      <div class="row"><label>雨の通知（降水確率%）</label><input type="number" id="sRain" min="10" max="100" step="10"></div>
+    </div>
+  </div>
+
+  <div id="panelFoot">
+    <button class="primary" id="btnSave">保存して閉じる</button>
+    <button id="btnCancel">取り消して閉じる</button>
+    <button class="ghost" id="btnReset">初期設定に戻す</button>
+  </div>
+</div>
+
+<script>
+"use strict";
+var $ = function(id){ return document.getElementById(id); };
+
+/* ---------- 設定 ---------- */
+var DEFAULTS = {
+  clockSize:170, dateSize:30, fg:"#EEF1F5", showSec:true,
+  hpos:"flex-start", vpos:"center",
+  nightOn:true, nightStart:1, nightEnd:6, nightBr:22,
+  weatherOn:true, lat:36.0835, lon:140.0764, refresh:15, rainThreshold:50
+};
+var KEY_S = "dash.settings", KEY_W = "dash.weather";
+var S = load();
+
+function load(){
+  var s = {};
+  for (var k in DEFAULTS) s[k] = DEFAULTS[k];
+  try {
+    var raw = localStorage.getItem(KEY_S);
+    if (raw){ var o = JSON.parse(raw); for (var j in o) if (j in s) s[j] = o[j]; }
+  } catch(e){}
+  return s;
+}
+function save(){ try{ localStorage.setItem(KEY_S, JSON.stringify(S)); }catch(e){} }
+
+function apply(){
+  var r = document.documentElement.style;
+  r.setProperty("--clock-size", S.clockSize + "px");
+  r.setProperty("--date-size",  S.dateSize + "px");
+  r.setProperty("--fg", S.fg);
+  r.setProperty("--hpos", S.hpos);
+  r.setProperty("--vpos", S.vpos);
+  r.setProperty("--talign", S.hpos === "center" ? "center" : (S.hpos === "flex-end" ? "right" : "left"));
+  var g = Math.round(255 * S.nightBr / 100);
+  r.setProperty("--night-fg", "rgb(" + g + "," + (g+4) + "," + (g+8) + ")");
+  setClass();
+  isNight = null; applyNight(new Date());
+}
+function setClass(){
+  var c = [];
+  if (!S.showSec) c.push("nosec");
+  if (!S.weatherOn) c.push("noweather");
+  if (isNight) c.push("night");
+  document.body.className = c.join(" ");
+}
+
+/* ---------- 天気コード ---------- */
+var WMO={0:["快晴","sun"],1:["晴れ","sun"],2:["薄曇り","partly"],3:["曇り","cloud"],
+45:["霧","fog"],48:["霧","fog"],51:["霧雨","drizzle"],53:["霧雨","drizzle"],55:["霧雨","drizzle"],
+56:["着氷性の霧雨","drizzle"],57:["着氷性の霧雨","drizzle"],61:["弱い雨","rain"],63:["雨","rain"],
+65:["強い雨","rain"],66:["みぞれ","rain"],67:["みぞれ","rain"],71:["弱い雪","snow"],73:["雪","snow"],
+75:["大雪","snow"],77:["霧雪","snow"],80:["にわか雨","rain"],81:["にわか雨","rain"],
+82:["激しいにわか雨","rain"],85:["にわか雪","snow"],86:["にわか雪","snow"],
+95:["雷雨","storm"],96:["雷雨","storm"],99:["雷雨","storm"]};
+
+var ICON={
+sun:'<circle cx="32" cy="32" r="13"/><g stroke-width="4" stroke-linecap="round"><path d="M32 4v9M32 51v9M4 32h9M51 32h9M12 12l6 6M46 46l6 6M52 12l-6 6M18 46l-6 6"/></g>',
+partly:'<circle cx="24" cy="24" r="10"/><g stroke-width="3.5" stroke-linecap="round"><path d="M24 3v7M3 24h7M9 9l5 5M39 9l-5 5"/></g><path d="M22 50a10 10 0 0 1 1-19.9 13 13 0 0 1 24.6 4A8.6 8.6 0 0 1 46 50z" stroke-width="3.5" stroke-linejoin="round"/>',
+cloud:'<path d="M19 48a11 11 0 0 1 1.2-21.9 14.5 14.5 0 0 1 27.5 4.4A9.5 9.5 0 0 1 45 48z" stroke-width="3.5" stroke-linejoin="round"/>',
+fog:'<path d="M19 38a11 11 0 0 1 1.2-21.9 14.5 14.5 0 0 1 27.5 4.4A9.5 9.5 0 0 1 45 38z" stroke-width="3.5" stroke-linejoin="round"/><g stroke-width="3.5" stroke-linecap="round"><path d="M12 47h40M18 55h28"/></g>',
+drizzle:'<path d="M19 38a11 11 0 0 1 1.2-21.9 14.5 14.5 0 0 1 27.5 4.4A9.5 9.5 0 0 1 45 38z" stroke-width="3.5" stroke-linejoin="round"/><g stroke-width="3.5" stroke-linecap="round"><path d="M25 45v5M39 45v5"/></g>',
+rain:'<path d="M19 36a11 11 0 0 1 1.2-21.9 14.5 14.5 0 0 1 27.5 4.4A9.5 9.5 0 0 1 45 36z" stroke-width="3.5" stroke-linejoin="round"/><g stroke-width="3.5" stroke-linecap="round"><path d="M23 43l-3 9M34 43l-3 9M45 43l-3 9"/></g>',
+snow:'<path d="M19 36a11 11 0 0 1 1.2-21.9 14.5 14.5 0 0 1 27.5 4.4A9.5 9.5 0 0 1 45 36z" stroke-width="3.5" stroke-linejoin="round"/><g stroke-width="3.5" stroke-linecap="round"><path d="M23 46v6M20 49h6M40 46v6M37 49h6"/></g>',
+storm:'<path d="M19 34a11 11 0 0 1 1.2-21.9 14.5 14.5 0 0 1 27.5 4.4A9.5 9.5 0 0 1 45 34z" stroke-width="3.5" stroke-linejoin="round"/><path d="M33 38l-9 13h8l-3 11 12-15h-8z" stroke-width="3" stroke-linejoin="round"/>'};
+
+function svg(n){ return '<svg viewBox="0 0 64 64" fill="none" stroke="currentColor" xmlns="http://www.w3.org/2000/svg">'+(ICON[n]||ICON.cloud)+'</svg>'; }
+
+/* ---------- 時計 ---------- */
+var DOW=["日","月","火","水","木","金","土"];
+var lastMin=-1,lastDay=-1,isNight=null;
+function pad(n){ return n<10?"0"+n:""+n; }
+
+function tickClock(){
+  var d=new Date(), m=d.getMinutes();
+  $("sec").textContent=pad(d.getSeconds());
+  if(m!==lastMin){
+    lastMin=m;
+    $("clock").firstChild.nodeValue=pad(d.getHours())+":"+pad(m);
+    applyNight(d);
+  }
+  if(d.getDate()!==lastDay){
+    lastDay=d.getDate();
+    $("date").innerHTML=(d.getMonth()+1)+"月"+d.getDate()+"日 <span id=\"dow\">"+DOW[d.getDay()]+"曜日</span>";
+  }
+}
+
+/* ---------- 夜間モード ---------- */
+function inNight(d){
+  if(!S.nightOn) return false;
+  var h=d.getHours(), s=S.nightStart, e=S.nightEnd;
+  if(s===e) return false;
+  return s<e ? (h>=s&&h<e) : (h>=s||h<e);
+}
+function applyNight(d){
+  var n=inNight(d);
+  if(n===isNight) return;
+  isNight=n; setClass();
+  if(n) releaseWake(); else requestWake();
+}
+
+/* ---------- 画面を消さない ---------- */
+var wakeLock=null;
+function requestWake(){
+  if(!("wakeLock" in navigator)) return;
+  navigator.wakeLock.request("screen").then(function(w){
+    wakeLock=w; w.addEventListener("release",function(){ wakeLock=null; });
+  })["catch"](function(){});
+}
+function releaseWake(){ if(wakeLock){ try{wakeLock.release();}catch(e){} wakeLock=null; } }
+
+/* ---------- 天気 ---------- */
+var fetchedAt=0, lastError="";
+function apiUrl(){
+  return "https://api.open-meteo.com/v1/forecast?latitude="+S.lat+"&longitude="+S.lon+
+    "&current=temperature_2m,apparent_temperature,weather_code"+
+    "&hourly=temperature_2m,weather_code,precipitation_probability"+
+    "&daily=temperature_2m_max,temperature_2m_min&timezone=Asia%2FTokyo&forecast_days=2";
+}
+function loadWeather(){
+  if(!S.weatherOn) return;
+  fetch(apiUrl()).then(function(r){
+    if(!r.ok) throw new Error("HTTP "+r.status);
+    return r.json();
+  }).then(function(j){
+    fetchedAt=Date.now(); lastError="";
+    try{ localStorage.setItem(KEY_W,JSON.stringify({at:fetchedAt,data:j})); }catch(e){}
+    render(j);
+  })["catch"](function(err){
+    lastError=(err&&err.message)?err.message:"通信エラー";
+    stamp();
+  });
+}
+function restore(){
+  try{
+    var raw=localStorage.getItem(KEY_W); if(!raw) return;
+    var c=JSON.parse(raw); fetchedAt=c.at; render(c.data);
+  }catch(e){}
+}
+function render(w){
+  var now=w.current, code=WMO[now.weather_code]||["不明","cloud"];
+  $("icon").innerHTML=svg(code[1]);
+  $("temp").innerHTML=Math.round(now.temperature_2m)+"<span>°</span>";
+  $("desc").textContent=code[0];
+  $("hilo").innerHTML="最高 <b>"+Math.round(w.daily.temperature_2m_max[0])+"°</b>　最低 <b>"+
+    Math.round(w.daily.temperature_2m_min[0])+"°</b>　体感 <b>"+Math.round(now.apparent_temperature)+"°</b>";
+
+  var h=w.hourly, base=new Date().getHours(), st=-1;
+  for(var i=0;i<h.time.length;i++){ if(parseInt(h.time[i].substr(11,2),10)===base){ st=i; break; } }
+  if(st<0) st=0;
+
+  var out="";
+  for(var k=1;k<=4;k++){
+    var j=st+k*3; if(j>=h.time.length) break;
+    var hc=WMO[h.weather_code[j]]||["","cloud"], pop=h.precipitation_probability[j];
+    out+='<div class="hour"><div class="h">'+parseInt(h.time[j].substr(11,2),10)+'時</div>'+svg(hc[1])+
+      '<div class="t">'+Math.round(h.temperature_2m[j])+'°</div>'+
+      '<div class="p">'+(pop>=20?pop+"%":"")+'</div></div>';
+  }
+  $("hours").innerHTML=out;
+  checkRain(h,st); stamp();
+}
+function checkRain(h,st){
+  var el=$("alert");
+  for(var k=1;k<=6;k++){
+    var j=st+k; if(j>=h.time.length) break;
+    if(h.precipitation_probability[j]>=S.rainThreshold){
+      el.textContent=parseInt(h.time[j].substr(11,2),10)+"時ごろから雨　降水確率 "+h.precipitation_probability[j]+"%";
+      el.className="on"; return;
+    }
+  }
+  el.className="";
+}
+function stamp(){
+  var el=$("updated"), note=$("note");
+  if(!fetchedAt){
+    el.textContent = lastError ? "天気を取得できませんでした" : "取得中";
+  } else {
+    var d=new Date(fetchedAt);
+    el.textContent=(lastError?"更新できません　":"")+"最終更新 "+pad(d.getHours())+":"+pad(d.getMinutes());
+  }
+  el.className=(lastError||(fetchedAt&&Date.now()-fetchedAt>S.refresh*180000))?"stale":"";
+
+  if(lastError && location.protocol==="file:"){
+    note.textContent="このファイルを file:// で直接開いているため、ブラウザの制限で天気を取得できません。https のサーバーに置くと表示されます。";
+    note.className="on";
+  } else if(lastError){
+    note.textContent="通信に失敗しました（"+lastError+"）。Wi-Fiと日時設定を確認してください。";
+    note.className="on";
+  } else { note.className=""; }
+}
+
+/* ---------- 設定パネル ---------- */
+var backup=null;
+function openPanel(){
+  backup=JSON.parse(JSON.stringify(S));
+  fillPanel(); $("panel").className="on";
+}
+function closePanel(){ $("panel").className=""; }
+
+function fillPanel(){
+  $("sClock").value=S.clockSize; $("vClock").textContent=S.clockSize+"px";
+  $("sDate").value=S.dateSize;   $("vDate").textContent=S.dateSize+"px";
+  $("sFg").value=S.fg;           $("vFg").textContent=S.fg;
+  $("sSec").checked=S.showSec;
+  $("sNightOn").checked=S.nightOn;
+  $("sNightStart").value=S.nightStart; $("sNightEnd").value=S.nightEnd;
+  $("sNightBr").value=S.nightBr; $("vNightBr").textContent=S.nightBr+"%";
+  $("sWeatherOn").checked=S.weatherOn;
+  $("sLat").value=S.lat; $("sLon").value=S.lon;
+  $("sRefresh").value=S.refresh; $("sRain").value=S.rainThreshold;
+  seg("segH",S.hpos); seg("segV",S.vpos);
+}
+function seg(id,v){
+  var b=$(id).getElementsByTagName("button");
+  for(var i=0;i<b.length;i++) b[i].className = (b[i].getAttribute("data-v")===v) ? "sel" : "";
+}
+
+function bindRange(id,key,valId,unit){
+  $(id).addEventListener("input",function(){
+    S[key]=parseInt(this.value,10);
+    $(valId).textContent=S[key]+unit; apply();
+  });
+}
+bindRange("sClock","clockSize","vClock","px");
+bindRange("sDate","dateSize","vDate","px");
+bindRange("sNightBr","nightBr","vNightBr","%");
+
+$("sFg").addEventListener("input",function(){ S.fg=this.value; $("vFg").textContent=S.fg; apply(); });
+$("sSec").addEventListener("change",function(){ S.showSec=this.checked; apply(); });
+$("sNightOn").addEventListener("change",function(){ S.nightOn=this.checked; apply(); });
+$("sWeatherOn").addEventListener("change",function(){
+  S.weatherOn=this.checked; apply(); if(S.weatherOn) loadWeather();
+});
+
+(function(){
+  var a=$("sNightStart"), b=$("sNightEnd"), o="";
+  for(var h=0;h<24;h++) o+='<option value="'+h+'">'+pad(h)+':00</option>';
+  a.innerHTML=o; b.innerHTML=o;
+  a.addEventListener("change",function(){ S.nightStart=parseInt(this.value,10); apply(); });
+  b.addEventListener("change",function(){ S.nightEnd=parseInt(this.value,10); apply(); });
+})();
+
+function bindNum(id,key,isFloat){
+  $(id).addEventListener("change",function(){
+    var v = isFloat ? parseFloat(this.value) : parseInt(this.value,10);
+    if(!isNaN(v)) S[key]=v;
+  });
+}
+bindNum("sLat","lat",true); bindNum("sLon","lon",true);
+bindNum("sRefresh","refresh"); bindNum("sRain","rainThreshold");
+
+function bindSeg(id,key){
+  $(id).addEventListener("click",function(e){
+    var v=e.target.getAttribute("data-v"); if(!v) return;
+    S[key]=v; seg(id,v); apply();
+  });
+}
+bindSeg("segH","hpos"); bindSeg("segV","vpos");
+
+$("btnSave").addEventListener("click",function(){
+  save(); closePanel(); restartTimers(); loadWeather();
+});
+$("btnCancel").addEventListener("click",function(){
+  S=backup; apply(); closePanel();
+});
+$("btnReset").addEventListener("click",function(){
+  S=JSON.parse(JSON.stringify(DEFAULTS)); apply(); fillPanel();
+});
+
+/* ---------- 操作：長押しで設定、タップで全画面 ---------- */
+var pressTimer=null, longPressed=false;
+function startPress(){
+  longPressed=false;
+  pressTimer=setTimeout(function(){ longPressed=true; openPanel(); },900);
+}
+function endPress(){ clearTimeout(pressTimer); }
+$("screen").addEventListener("touchstart",startPress);
+$("screen").addEventListener("touchend",endPress);
+$("screen").addEventListener("touchmove",endPress);
+$("screen").addEventListener("mousedown",startPress);
+$("screen").addEventListener("mouseup",endPress);
+
+$("screen").addEventListener("click",function(){
+  if(longPressed) return;
+  var e=document.documentElement;
+  if(document.fullscreenElement||document.webkitFullscreenElement) return;
+  if(e.requestFullscreen) e.requestFullscreen();
+  else if(e.webkitRequestFullscreen) e.webkitRequestFullscreen();
+});
+
+/* ---------- 画面サイズに合わせて拡大縮小する ---------- */
+var REF_W=1280, REF_H=800;
+function fitStage(){
+  var vw=window.innerWidth, vh=window.innerHeight;
+  var scale=Math.min(vw/REF_W, vh/REF_H);
+  var x=(vw-REF_W*scale)/2, y=(vh-REF_H*scale)/2;
+  $("screen").style.transform="translate("+x+"px,"+y+"px) scale("+scale+")";
+}
+window.addEventListener("resize", fitStage);
+window.addEventListener("orientationchange", function(){ setTimeout(fitStage,300); });
+
+/* ---------- 起動 ---------- */
+var tWeather=null;
+function restartTimers(){
+  if(tWeather) clearInterval(tWeather);
+  tWeather=setInterval(loadWeather, S.refresh*60000);
+}
+
+apply();
+fitStage();
+restore();
+tickClock();
+loadWeather();
+setInterval(tickClock,1000);
+setInterval(stamp,60000);
+restartTimers();
+setTimeout(function(){ var h=$("hint"); if(h) h.style.display="none"; },20000);
+
+document.addEventListener("visibilitychange",function(){
+  if(document.visibilityState!=="visible") return;
+  lastMin=-1; lastDay=-1; isNight=null;
+  tickClock();
+  if(!isNight) requestWake();
+  if(Date.now()-fetchedAt > S.refresh*60000) loadWeather();
+});
+
+setInterval(function(){
+  var d=new Date();
+  if(d.getHours()===4 && d.getMinutes()===0) location.reload();
+},60000);
+</script>
+</body>
+</html>
