@@ -12,6 +12,10 @@
   --fg:#EEF1F5; --clock-size:200px; --date-size:34px;
   --vpos:center; --hpos:flex-start; --talign:left;
   --night-fg:#2A3138;
+  --hh-color:#EEF1F5; --mm-color:#EEF1F5; --ss-color:#7E8894;
+  --date-md-color:#7E8894; --date-dow-color:#EEF1F5;
+  --temp-color:#EEF1F5; --desc-color:#EEF1F5; --hilo-color:#7E8894; --hourfc-color:#EEF1F5;
+  --weather-scale:1;
 }
 *{margin:0;padding:0;box-sizing:border-box;}
 html,body{height:100%;background:var(--bg);color:var(--fg);overflow:hidden;position:relative;
@@ -27,30 +31,33 @@ body.noweather #right{display:none;}
 #left{display:flex;flex-direction:column;justify-content:var(--vpos);align-items:var(--hpos);text-align:var(--talign);}
 
 #clock{font-size:var(--clock-size);font-weight:200;line-height:.92;letter-spacing:-.035em;font-variant-numeric:tabular-nums;}
-#sec{font-size:.32em;font-weight:300;color:var(--muted);letter-spacing:0;margin-left:.06em;}
+#hh{color:var(--hh-color);}
+#mm{color:var(--mm-color);}
+#sec{font-size:.32em;font-weight:300;color:var(--ss-color);letter-spacing:0;margin-left:.06em;}
 body.nosec #sec{display:none;}
-#date{margin-top:22px;font-size:var(--date-size);font-weight:300;color:var(--muted);}
-#dow{color:var(--fg);}
+#date{margin-top:22px;font-size:var(--date-size);font-weight:300;}
+#md{color:var(--date-md-color);}
+#dow{color:var(--date-dow-color);}
 
-#alert{display:none;margin-top:34px;padding:16px 22px;border-left:3px solid var(--rain);
-  background:rgba(111,180,232,.10);font-size:27px;color:var(--rain);border-radius:0 6px 6px 0;}
+#alert{display:none;padding:calc(16px*var(--weather-scale)) calc(22px*var(--weather-scale));border-left:3px solid var(--rain);
+  background:rgba(111,180,232,.10);font-size:calc(27px*var(--weather-scale));color:var(--rain);border-radius:0 6px 6px 0;}
 #alert.on{display:block;}
 
 #right{display:flex;flex-direction:column;gap:22px;justify-content:center;}
 .card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:26px 30px;}
 #nowRow{display:flex;align-items:center;gap:26px;}
-#icon{width:96px;height:96px;flex:none;}
-#temp{font-size:82px;font-weight:200;line-height:1;font-variant-numeric:tabular-nums;}
-#temp span{font-size:38px;color:var(--muted);}
-#desc{font-size:30px;font-weight:300;margin-top:6px;}
-#hilo{font-size:24px;color:var(--muted);margin-top:10px;}
+#icon{width:calc(96px*var(--weather-scale));height:calc(96px*var(--weather-scale));flex:none;color:var(--temp-color);}
+#temp{font-size:calc(82px*var(--weather-scale));font-weight:200;line-height:1;font-variant-numeric:tabular-nums;color:var(--temp-color);}
+#temp span{font-size:calc(38px*var(--weather-scale));color:var(--muted);}
+#desc{font-size:calc(30px*var(--weather-scale));font-weight:300;margin-top:6px;color:var(--desc-color);}
+#hilo{font-size:calc(24px*var(--weather-scale));color:var(--hilo-color);margin-top:10px;}
 #hilo b{font-weight:400;color:var(--fg);}
 #hours{display:flex;justify-content:space-between;}
 .hour{text-align:center;flex:1;}
-.hour .h{font-size:22px;color:var(--muted);}
-.hour svg{width:42px;height:42px;margin:10px 0 6px;}
-.hour .t{font-size:28px;font-weight:300;font-variant-numeric:tabular-nums;}
-.hour .p{font-size:20px;color:var(--rain);min-height:26px;}
+.hour .h{font-size:calc(22px*var(--weather-scale));color:var(--muted);}
+.hour svg{width:calc(42px*var(--weather-scale));height:calc(42px*var(--weather-scale));margin:calc(10px*var(--weather-scale)) 0 calc(6px*var(--weather-scale));}
+.hour .t{font-size:calc(28px*var(--weather-scale));font-weight:300;font-variant-numeric:tabular-nums;color:var(--hourfc-color);}
+.hour .p{font-size:calc(20px*var(--weather-scale));color:var(--rain);min-height:calc(26px*var(--weather-scale));}
 #updated{font-size:21px;color:var(--muted);text-align:right;}
 #updated.stale{color:var(--warm);}
 #note{display:none;font-size:20px;line-height:1.5;color:var(--warm);}
@@ -61,9 +68,10 @@ body.night #right,body.night #alert{display:none;}
 body.night #screen{grid-template-columns:1fr;place-items:center;padding:0;}
 body.night #left{align-items:center;text-align:center;justify-content:center;}
 body.night #clock{font-size:120px;color:var(--night-fg);}
+body.night #hh,body.night #mm{color:var(--night-fg);}
 body.night #sec{display:none;}
 body.night #date{font-size:24px;color:var(--night-fg);opacity:.6;}
-body.night #dow{color:var(--night-fg);}
+body.night #md,body.night #dow{color:var(--night-fg);}
 
 /* ===== 設定パネル ===== */
 #panel{position:fixed;inset:0;background:rgba(4,6,10,.94);z-index:50;display:none;
@@ -99,9 +107,8 @@ body.night #hint{display:none;}
 
 <div id="screen">
   <div id="left">
-    <div id="clock">--:--<span id="sec">00</span></div>
+    <div id="clock"><span id="hh">--</span>:<span id="mm">--</span><span id="sec">00</span></div>
     <div id="date">読み込み中</div>
-    <div id="alert"></div>
   </div>
   <div id="right">
     <div class="card">
@@ -114,6 +121,7 @@ body.night #hint{display:none;}
       </div>
       <div id="hilo"></div>
     </div>
+    <div id="alert"></div>
     <div class="card" id="hours"></div>
     <div id="updated">未取得</div>
     <div id="note"></div>
@@ -133,9 +141,16 @@ body.night #hint{display:none;}
         <input type="range" id="sClock" min="70" max="340" step="5"><span class="val" id="vClock"></span></div>
       <div class="row"><label>日付の大きさ</label>
         <input type="range" id="sDate" min="16" max="90" step="2"><span class="val" id="vDate"></span></div>
-      <div class="row"><label>文字の色</label>
+      <div class="row"><label>文字の色（基本）</label>
         <input type="color" id="sFg"><span class="val" id="vFg"></span></div>
       <div class="row"><label>秒を表示する</label><input type="checkbox" id="sSec"></div>
+
+      <div class="sec">時計・日付の色（個別）</div>
+      <div class="row"><label>時の色</label><input type="color" id="sHourColor"></div>
+      <div class="row"><label>分の色</label><input type="color" id="sMinColor"></div>
+      <div class="row"><label>秒の色</label><input type="color" id="sSecColor"></div>
+      <div class="row"><label>月日の色</label><input type="color" id="sDateColor"></div>
+      <div class="row"><label>曜日の色</label><input type="color" id="sDowColor"></div>
 
       <div class="sec">表示位置</div>
       <div class="row"><label>横</label>
@@ -162,6 +177,14 @@ body.night #hint{display:none;}
       <div class="row"><label>経度</label><input type="number" id="sLon" step="0.0001"></div>
       <div class="row"><label>更新間隔（分）</label><input type="number" id="sRefresh" min="5" max="120" step="5"></div>
       <div class="row"><label>雨の通知（降水確率%）</label><input type="number" id="sRain" min="10" max="100" step="10"></div>
+
+      <div class="sec">天気の見た目</div>
+      <div class="row"><label>天気の大きさ</label>
+        <input type="range" id="sWeatherScale" min="60" max="160" step="5"><span class="val" id="vWeatherScale"></span></div>
+      <div class="row"><label>気温の色</label><input type="color" id="sTempColor"></div>
+      <div class="row"><label>天気の説明の色</label><input type="color" id="sDescColor"></div>
+      <div class="row"><label>最高/最低/体感の色</label><input type="color" id="sHiloColor"></div>
+      <div class="row"><label>時間ごとの予報の色</label><input type="color" id="sHourFcColor"></div>
     </div>
   </div>
 
@@ -180,8 +203,11 @@ var $ = function(id){ return document.getElementById(id); };
 var DEFAULTS = {
   clockSize:170, dateSize:30, fg:"#EEF1F5", showSec:true,
   hpos:"flex-start", vpos:"center",
+  hourColor:"#EEF1F5", minColor:"#EEF1F5", secColor:"#7E8894",
+  dateColor:"#7E8894", dowColor:"#EEF1F5",
   nightOn:true, nightStart:1, nightEnd:6, nightBr:22,
-  weatherOn:true, lat:36.0835, lon:140.0764, refresh:15, rainThreshold:50
+  weatherOn:true, lat:36.0835, lon:140.0764, refresh:15, rainThreshold:50,
+  weatherScale:100, tempColor:"#EEF1F5", descColor:"#EEF1F5", hiloColor:"#7E8894", hourFcColor:"#EEF1F5"
 };
 var KEY_S = "dash.settings", KEY_W = "dash.weather";
 var S = load();
@@ -205,6 +231,16 @@ function apply(){
   r.setProperty("--hpos", S.hpos);
   r.setProperty("--vpos", S.vpos);
   r.setProperty("--talign", S.hpos === "center" ? "center" : (S.hpos === "flex-end" ? "right" : "left"));
+  r.setProperty("--hh-color", S.hourColor);
+  r.setProperty("--mm-color", S.minColor);
+  r.setProperty("--ss-color", S.secColor);
+  r.setProperty("--date-md-color", S.dateColor);
+  r.setProperty("--date-dow-color", S.dowColor);
+  r.setProperty("--weather-scale", S.weatherScale / 100);
+  r.setProperty("--temp-color", S.tempColor);
+  r.setProperty("--desc-color", S.descColor);
+  r.setProperty("--hilo-color", S.hiloColor);
+  r.setProperty("--hourfc-color", S.hourFcColor);
   var g = Math.round(255 * S.nightBr / 100);
   r.setProperty("--night-fg", "rgb(" + g + "," + (g+4) + "," + (g+8) + ")");
   setClass();
@@ -249,12 +285,13 @@ function tickClock(){
   $("sec").textContent=pad(d.getSeconds());
   if(m!==lastMin){
     lastMin=m;
-    $("clock").firstChild.nodeValue=pad(d.getHours())+":"+pad(m);
+    $("hh").textContent=pad(d.getHours());
+    $("mm").textContent=pad(m);
     applyNight(d);
   }
   if(d.getDate()!==lastDay){
     lastDay=d.getDate();
-    $("date").innerHTML=(d.getMonth()+1)+"月"+d.getDate()+"日 <span id=\"dow\">"+DOW[d.getDay()]+"曜日</span>";
+    $("date").innerHTML="<span id=\"md\">"+(d.getMonth()+1)+"月"+d.getDate()+"日</span> <span id=\"dow\">"+DOW[d.getDay()]+"曜日</span>";
   }
 }
 
@@ -376,12 +413,17 @@ function fillPanel(){
   $("sDate").value=S.dateSize;   $("vDate").textContent=S.dateSize+"px";
   $("sFg").value=S.fg;           $("vFg").textContent=S.fg;
   $("sSec").checked=S.showSec;
+  $("sHourColor").value=S.hourColor; $("sMinColor").value=S.minColor; $("sSecColor").value=S.secColor;
+  $("sDateColor").value=S.dateColor; $("sDowColor").value=S.dowColor;
   $("sNightOn").checked=S.nightOn;
   $("sNightStart").value=S.nightStart; $("sNightEnd").value=S.nightEnd;
   $("sNightBr").value=S.nightBr; $("vNightBr").textContent=S.nightBr+"%";
   $("sWeatherOn").checked=S.weatherOn;
   $("sLat").value=S.lat; $("sLon").value=S.lon;
   $("sRefresh").value=S.refresh; $("sRain").value=S.rainThreshold;
+  $("sWeatherScale").value=S.weatherScale; $("vWeatherScale").textContent=S.weatherScale+"%";
+  $("sTempColor").value=S.tempColor; $("sDescColor").value=S.descColor;
+  $("sHiloColor").value=S.hiloColor; $("sHourFcColor").value=S.hourFcColor;
   seg("segH",S.hpos); seg("segV",S.vpos);
 }
 function seg(id,v){
@@ -398,9 +440,18 @@ function bindRange(id,key,valId,unit){
 bindRange("sClock","clockSize","vClock","px");
 bindRange("sDate","dateSize","vDate","px");
 bindRange("sNightBr","nightBr","vNightBr","%");
+bindRange("sWeatherScale","weatherScale","vWeatherScale","%");
 
 $("sFg").addEventListener("input",function(){ S.fg=this.value; $("vFg").textContent=S.fg; apply(); });
 $("sSec").addEventListener("change",function(){ S.showSec=this.checked; apply(); });
+
+function bindColor(id,key){
+  $(id).addEventListener("input",function(){ S[key]=this.value; apply(); });
+}
+bindColor("sHourColor","hourColor"); bindColor("sMinColor","minColor"); bindColor("sSecColor","secColor");
+bindColor("sDateColor","dateColor"); bindColor("sDowColor","dowColor");
+bindColor("sTempColor","tempColor"); bindColor("sDescColor","descColor");
+bindColor("sHiloColor","hiloColor"); bindColor("sHourFcColor","hourFcColor");
 $("sNightOn").addEventListener("change",function(){ S.nightOn=this.checked; apply(); });
 $("sWeatherOn").addEventListener("change",function(){
   S.weatherOn=this.checked; apply(); if(S.weatherOn) loadWeather();
