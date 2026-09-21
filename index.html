@@ -5,7 +5,11 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#070A0F">
 <title>Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Kosugi+Maru&family=M+PLUS+1p:wght@300;400;700&family=M+PLUS+Rounded+1c:wght@300;400;700&family=Noto+Sans+JP:wght@300;400;700&family=Noto+Serif+JP:wght@300;400;700&family=RocknRoll+One&family=Shippori+Mincho&family=Yuji+Syuku&display=swap" rel="stylesheet">
 <style>
+/* ===== 全体で使う色・サイズの変数（CONFIGにあたる部分） ===== */
 :root{
   --bg:#070A0F; --surface:rgba(255,255,255,.055); --line:rgba(255,255,255,.09);
   --muted:#7E8894; --rain:#6FB4E8; --warm:#E8B06F;
@@ -16,54 +20,84 @@
   --date-md-color:#7E8894; --date-dow-color:#EEF1F5;
   --temp-color:#EEF1F5; --desc-color:#EEF1F5; --hilo-color:#7E8894; --hourfc-color:#EEF1F5;
   --weather-scale:1;
+  --clock-font:"Roboto","Noto Sans CJK JP","Droid Sans Japanese",sans-serif;
+  --date-font:"Roboto","Noto Sans CJK JP","Droid Sans Japanese",sans-serif;
+  --cal-scale:1; --cal-sun-color:#E8706F; --cal-sat-color:#6F9EE8; --cal-holiday-color:#E8706F;
 }
+
+/* ===== 全体のリセット・基本スタイル ===== */
 *{margin:0;padding:0;box-sizing:border-box;}
 html,body{height:100%;background:var(--bg);color:var(--fg);overflow:hidden;position:relative;
   font-family:"Roboto","Noto Sans CJK JP","Droid Sans Japanese",sans-serif;
   -webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;}
 
+/* ===== 画面全体のレイアウト（左：時計・日付／右：天気） ===== */
 #screen{position:absolute;top:0;left:0;width:1280px;height:800px;
   transform-origin:0 0;display:grid;grid-template-columns:1.15fr 1fr;gap:32px;padding:48px 56px;
   overflow:hidden;}
 body.noweather #screen{grid-template-columns:1fr;}
 body.noweather #right{display:none;}
 
+/* ===== 左側：時計・日付エリア ===== */
 #left{display:flex;flex-direction:column;justify-content:var(--vpos);align-items:var(--hpos);text-align:var(--talign);}
 
-#clock{font-size:var(--clock-size);font-weight:200;line-height:.92;letter-spacing:-.035em;font-variant-numeric:tabular-nums;}
+#clock{font-family:var(--clock-font);font-size:var(--clock-size);font-weight:200;line-height:.92;letter-spacing:-.035em;font-variant-numeric:tabular-nums;}
 #hh{color:var(--hh-color);}
 #mm{color:var(--mm-color);}
 #sec{font-size:.32em;font-weight:300;color:var(--ss-color);letter-spacing:0;margin-left:.06em;}
 body.nosec #sec{display:none;}
-#date{margin-top:22px;font-size:var(--date-size);font-weight:300;}
+#date{margin-top:22px;font-size:var(--date-size);font-weight:300;font-family:var(--date-font);
+  align-self:center;text-align:center;}
 #md{color:var(--date-md-color);}
 #dow{color:var(--date-dow-color);}
 
-#alert{display:none;padding:calc(16px*var(--weather-scale)) calc(22px*var(--weather-scale));border-left:3px solid var(--rain);
-  background:rgba(111,180,232,.10);font-size:calc(27px*var(--weather-scale));color:var(--rain);border-radius:0 6px 6px 0;}
-#alert.on{display:block;}
+/* ===== 左側：カレンダー（月表示・日曜始まり） ===== */
+#cal{margin-top:calc(24px*var(--cal-scale));width:min(100%,calc(360px*var(--cal-scale)));align-self:center;}
+.calHead,.calGrid{display:grid;grid-template-columns:repeat(7,1fr);gap:calc(4px*var(--cal-scale));}
+.calHead div{text-align:center;font-size:calc(15px*var(--cal-scale));color:var(--muted);padding-bottom:calc(6px*var(--cal-scale));}
+.calHead .sun{color:var(--cal-sun-color);}
+.calHead .sat{color:var(--cal-sat-color);}
+.calGrid{margin-top:calc(2px*var(--cal-scale));}
+.calCell{text-align:center;padding:calc(5px*var(--cal-scale)) 0;font-size:calc(18px*var(--cal-scale));
+  font-variant-numeric:tabular-nums;border-radius:8px;}
+.calCell.other{opacity:.25;}
+.calCell.sun{color:var(--cal-sun-color);}
+.calCell.sat{color:var(--cal-sat-color);}
+.calCell.holiday{color:var(--cal-holiday-color);}
+.calCell.today{background:rgba(255,255,255,.14);font-weight:500;}
+body.nocal #cal{display:none;}
+body.night #cal{display:none;}
 
+/* ===== 右側：天気カード（現在の天気） ===== */
 #right{display:flex;flex-direction:column;gap:22px;justify-content:center;}
 .card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:26px 30px;}
-#nowRow{display:flex;align-items:center;gap:26px;}
-#icon{width:calc(96px*var(--weather-scale));height:calc(96px*var(--weather-scale));flex:none;color:var(--temp-color);}
-#temp{font-size:calc(82px*var(--weather-scale));font-weight:200;line-height:1;font-variant-numeric:tabular-nums;color:var(--temp-color);}
-#temp span{font-size:calc(38px*var(--weather-scale));color:var(--muted);}
-#desc{font-size:calc(30px*var(--weather-scale));font-weight:300;margin-top:6px;color:var(--desc-color);}
-#hilo{font-size:calc(24px*var(--weather-scale));color:var(--hilo-color);margin-top:10px;}
+#nowRow{display:flex;align-items:center;justify-content:center;gap:30px;text-align:center;}
+#nowRow>div:last-child{display:flex;flex-direction:column;align-items:center;}
+#icon{width:calc(108px*var(--weather-scale));height:calc(108px*var(--weather-scale));flex:none;color:var(--temp-color);}
+#temp{font-size:calc(92px*var(--weather-scale));font-weight:200;line-height:1;font-variant-numeric:tabular-nums;color:var(--temp-color);}
+#temp span{font-size:calc(40px*var(--weather-scale));color:var(--muted);}
+#desc{font-size:calc(34px*var(--weather-scale));font-weight:300;margin-top:8px;color:var(--desc-color);}
+#hilo{font-size:calc(24px*var(--weather-scale));color:var(--hilo-color);margin-top:10px;text-align:center;}
 #hilo b{font-weight:400;color:var(--fg);}
+
+/* ===== 右側：時間ごとの予報カード ===== */
 #hours{display:flex;justify-content:space-between;}
 .hour{text-align:center;flex:1;}
 .hour .h{font-size:calc(22px*var(--weather-scale));color:var(--muted);}
 .hour svg{width:calc(42px*var(--weather-scale));height:calc(42px*var(--weather-scale));margin:calc(10px*var(--weather-scale)) 0 calc(6px*var(--weather-scale));}
 .hour .t{font-size:calc(28px*var(--weather-scale));font-weight:300;font-variant-numeric:tabular-nums;color:var(--hourfc-color);}
 .hour .p{font-size:calc(20px*var(--weather-scale));color:var(--rain);min-height:calc(26px*var(--weather-scale));}
-#updated{font-size:21px;color:var(--muted);text-align:right;}
-#updated.stale{color:var(--warm);}
+
+/* ===== 右側：降水確率アラート（「○時ごろから雨」） ===== */
+#alert{display:none;padding:calc(16px*var(--weather-scale)) calc(22px*var(--weather-scale));border-left:3px solid var(--rain);
+  background:rgba(111,180,232,.10);font-size:calc(27px*var(--weather-scale));color:var(--rain);border-radius:0 6px 6px 0;}
+#alert.on{display:block;}
+
+/* ===== 右側：通信エラー時の注意書き ===== */
 #note{display:none;font-size:20px;line-height:1.5;color:var(--warm);}
 #note.on{display:block;}
 
-/* 夜間モード */
+/* ===== 夜間モード（時計のみ・暗いグレー表示に切り替え） ===== */
 body.night #right,body.night #alert{display:none;}
 body.night #screen{grid-template-columns:1fr;place-items:center;padding:0;}
 body.night #left{align-items:center;text-align:center;justify-content:center;}
@@ -109,6 +143,7 @@ body.night #hint{display:none;}
   <div id="left">
     <div id="clock"><span id="hh">--</span>:<span id="mm">--</span><span id="sec">00</span></div>
     <div id="date">読み込み中</div>
+    <div id="cal"></div>
   </div>
   <div id="right">
     <div class="card">
@@ -121,9 +156,8 @@ body.night #hint{display:none;}
       </div>
       <div id="hilo"></div>
     </div>
-    <div id="alert"></div>
     <div class="card" id="hours"></div>
-    <div id="updated">未取得</div>
+    <div id="alert"></div>
     <div id="note"></div>
   </div>
 </div>
@@ -144,6 +178,10 @@ body.night #hint{display:none;}
       <div class="row"><label>文字の色（基本）</label>
         <input type="color" id="sFg"><span class="val" id="vFg"></span></div>
       <div class="row"><label>秒を表示する</label><input type="checkbox" id="sSec"></div>
+      <div class="row"><label>時刻のフォント</label>
+        <select id="sClockFont"></select></div>
+      <div class="row"><label>日付のフォント</label>
+        <select id="sDateFont"></select></div>
 
       <div class="sec">時計・日付の色（個別）</div>
       <div class="row"><label>時の色</label><input type="color" id="sHourColor"></div>
@@ -161,6 +199,14 @@ body.night #hint{display:none;}
         <div class="seg" id="segV">
           <button data-v="flex-start">上</button><button data-v="center">中央</button><button data-v="flex-end">下</button>
         </div></div>
+
+      <div class="sec">カレンダー</div>
+      <div class="row"><label>カレンダーを表示する</label><input type="checkbox" id="sCalOn"></div>
+      <div class="row"><label>カレンダーの大きさ</label>
+        <input type="range" id="sCalScale" min="60" max="160" step="5"><span class="val" id="vCalScale"></span></div>
+      <div class="row"><label>日曜日の色</label><input type="color" id="sCalSun"></div>
+      <div class="row"><label>土曜日の色</label><input type="color" id="sCalSat"></div>
+      <div class="row"><label>祝日の色</label><input type="color" id="sCalHoliday"></div>
     </div>
 
     <div>
@@ -199,15 +245,43 @@ body.night #hint{display:none;}
 "use strict";
 var $ = function(id){ return document.getElementById(id); };
 
-/* ---------- 設定 ---------- */
+/* ===== フォントの選択肢（キー→実際のfont-family値／表示名） ===== */
+/* 「Android専用」と書いたものはタブレット実機でのみ見た目が変わり、
+   PCのブラウザではsans-serifと同じに見えます（見た目確認はNoto/Kosugi等を推奨）。*/
+var FONT_MAP = [
+  ["default","既定",'"Roboto","Noto Sans CJK JP","Droid Sans Japanese",sans-serif'],
+  ["gothic","ゴシック体（Noto Sans）","'Noto Sans JP',sans-serif"],
+  ["mincho","明朝体（Noto Serif）","'Noto Serif JP',serif"],
+  ["round","丸ゴシック（コスギ丸）","'Kosugi Maru',sans-serif"],
+  ["mplus_round","丸ゴシック（M PLUS Rounded）","'M PLUS Rounded 1c',sans-serif"],
+  ["mplus","モダンゴシック（M PLUS）","'M PLUS 1p',sans-serif"],
+  ["shippori","上品な明朝（しっぽり明朝）","'Shippori Mincho',serif"],
+  ["pop","ポップ体（RocknRoll One）","'RocknRoll One',sans-serif"],
+  ["brush","筆文字風（游習字）","'Yuji Syuku',serif"],
+  ["serif","セリフ（欧文）","serif"],
+  ["mono","等幅","monospace"],
+  ["condensed","コンデンス（Android専用）","sans-serif-condensed,sans-serif"],
+  ["thin","細字（Android専用）","sans-serif-thin,sans-serif"]
+];
+var FONT_CSS = {};
+(function(){ for(var i=0;i<FONT_MAP.length;i++) FONT_CSS[FONT_MAP[i][0]] = FONT_MAP[i][2]; })();
+function fillFontSelect(id){
+  var o="";
+  for(var i=0;i<FONT_MAP.length;i++) o+='<option value="'+FONT_MAP[i][0]+'">'+FONT_MAP[i][1]+'</option>';
+  $(id).innerHTML=o;
+}
+fillFontSelect("sClockFont"); fillFontSelect("sDateFont");
+
+/* ===== 設定値（DEFAULTS）・読み込み保存・apply() ===== */
 var DEFAULTS = {
-  clockSize:170, dateSize:30, fg:"#EEF1F5", showSec:true,
+  clockSize:170, dateSize:30, fg:"#EEF1F5", showSec:true, clockFont:"default", dateFont:"default",
   hpos:"flex-start", vpos:"center",
   hourColor:"#EEF1F5", minColor:"#EEF1F5", secColor:"#7E8894",
   dateColor:"#7E8894", dowColor:"#EEF1F5",
   nightOn:true, nightStart:1, nightEnd:6, nightBr:22,
   weatherOn:true, lat:36.0835, lon:140.0764, refresh:15, rainThreshold:50,
-  weatherScale:100, tempColor:"#EEF1F5", descColor:"#EEF1F5", hiloColor:"#7E8894", hourFcColor:"#EEF1F5"
+  weatherScale:100, tempColor:"#EEF1F5", descColor:"#EEF1F5", hiloColor:"#7E8894", hourFcColor:"#EEF1F5",
+  calendarOn:true, calScale:100, calSunColor:"#E8706F", calSatColor:"#6F9EE8", calHolidayColor:"#E8706F"
 };
 var KEY_S = "dash.settings", KEY_W = "dash.weather";
 var S = load();
@@ -228,6 +302,8 @@ function apply(){
   r.setProperty("--clock-size", S.clockSize + "px");
   r.setProperty("--date-size",  S.dateSize + "px");
   r.setProperty("--fg", S.fg);
+  r.setProperty("--clock-font", FONT_CSS[S.clockFont] || FONT_CSS.default);
+  r.setProperty("--date-font", FONT_CSS[S.dateFont] || FONT_CSS.default);
   r.setProperty("--hpos", S.hpos);
   r.setProperty("--vpos", S.vpos);
   r.setProperty("--talign", S.hpos === "center" ? "center" : (S.hpos === "flex-end" ? "right" : "left"));
@@ -241,6 +317,10 @@ function apply(){
   r.setProperty("--desc-color", S.descColor);
   r.setProperty("--hilo-color", S.hiloColor);
   r.setProperty("--hourfc-color", S.hourFcColor);
+  r.setProperty("--cal-scale", S.calScale / 100);
+  r.setProperty("--cal-sun-color", S.calSunColor);
+  r.setProperty("--cal-sat-color", S.calSatColor);
+  r.setProperty("--cal-holiday-color", S.calHolidayColor);
   var g = Math.round(255 * S.nightBr / 100);
   r.setProperty("--night-fg", "rgb(" + g + "," + (g+4) + "," + (g+8) + ")");
   setClass();
@@ -250,11 +330,12 @@ function setClass(){
   var c = [];
   if (!S.showSec) c.push("nosec");
   if (!S.weatherOn) c.push("noweather");
+  if (!S.calendarOn) c.push("nocal");
   if (isNight) c.push("night");
   document.body.className = c.join(" ");
 }
 
-/* ---------- 天気コード ---------- */
+/* ===== 天気コード（WMO）とアイコンSVG ===== */
 var WMO={0:["快晴","sun"],1:["晴れ","sun"],2:["薄曇り","partly"],3:["曇り","cloud"],
 45:["霧","fog"],48:["霧","fog"],51:["霧雨","drizzle"],53:["霧雨","drizzle"],55:["霧雨","drizzle"],
 56:["着氷性の霧雨","drizzle"],57:["着氷性の霧雨","drizzle"],61:["弱い雨","rain"],63:["雨","rain"],
@@ -275,7 +356,7 @@ storm:'<path d="M19 34a11 11 0 0 1 1.2-21.9 14.5 14.5 0 0 1 27.5 4.4A9.5 9.5 0 0
 
 function svg(n){ return '<svg viewBox="0 0 64 64" fill="none" stroke="currentColor" xmlns="http://www.w3.org/2000/svg">'+(ICON[n]||ICON.cloud)+'</svg>'; }
 
-/* ---------- 時計 ---------- */
+/* ===== 時計・日付の表示更新 ===== */
 var DOW=["日","月","火","水","木","金","土"];
 var lastMin=-1,lastDay=-1,isNight=null;
 function pad(n){ return n<10?"0"+n:""+n; }
@@ -292,10 +373,62 @@ function tickClock(){
   if(d.getDate()!==lastDay){
     lastDay=d.getDate();
     $("date").innerHTML="<span id=\"md\">"+(d.getMonth()+1)+"月"+d.getDate()+"日</span> <span id=\"dow\">"+DOW[d.getDay()]+"曜日</span>";
+    loadHolidays(); renderCalendar();
   }
 }
 
-/* ---------- 夜間モード ---------- */
+/* ===== カレンダー（月表示・日曜始まり・祝日はholidays-jp APIで判定） ===== */
+var HOLIDAYS = {}, holidaysAt = 0;
+var HOLIDAY_KEY = "dash.holidays";
+function loadHolidays(){
+  try{
+    var raw = localStorage.getItem(HOLIDAY_KEY);
+    if (raw){ var c = JSON.parse(raw); HOLIDAYS = c.data || {}; holidaysAt = c.at || 0; }
+  }catch(e){}
+  if (Date.now() - holidaysAt < 20*3600000) return; // 20時間以内に取得済みなら再取得しない
+  fetch("https://holidays-jp.github.io/api/v1/date.json").then(function(r){
+    if(!r.ok) throw new Error("HTTP "+r.status);
+    return r.json();
+  }).then(function(obj){
+    HOLIDAYS = obj; holidaysAt = Date.now();
+    try{ localStorage.setItem(HOLIDAY_KEY, JSON.stringify({at:holidaysAt, data:obj})); }catch(e){}
+    renderCalendar();
+  })["catch"](function(){ /* 取得失敗時は前回キャッシュ（あれば）のまま、日曜/土曜の色分けのみ表示 */ });
+}
+function daysInMonth(y, mIdx){ return new Date(y, mIdx+1, 0).getDate(); }
+function renderCalendar(){
+  var el = $("cal"); if(!el) return;
+  var now = new Date(), y = now.getFullYear(), m = now.getMonth();
+  var startDow = new Date(y, m, 1).getDay();
+  var totalDays = daysInMonth(y, m), prevDays = daysInMonth(y, m-1);
+  var cells = [];
+  for(var i=0;i<startDow;i++) cells.push({day:prevDays-startDow+1+i, other:true});
+  for(var d=1;d<=totalDays;d++){
+    var dow=(startDow+d-1)%7;
+    var dateStr = y+"-"+pad(m+1)+"-"+pad(d);
+    cells.push({day:d, other:false, dow:dow, today:(d===now.getDate()), holiday:!!HOLIDAYS[dateStr]});
+  }
+  var rem = cells.length % 7;
+  if(rem>0) for(var j=1;j<=7-rem;j++) cells.push({day:j, other:true});
+
+  var head = ["日","月","火","水","木","金","土"].map(function(x,i){
+    return '<div class="'+(i===0?"sun":i===6?"sat":"")+'">'+x+'</div>';
+  }).join("");
+  var grid = cells.map(function(c){
+    var cls=[];
+    if(c.other) cls.push("other");
+    if(c.today) cls.push("today");
+    if(!c.other){
+      if(c.holiday) cls.push("holiday");
+      else if(c.dow===0) cls.push("sun");
+      else if(c.dow===6) cls.push("sat");
+    }
+    return '<div class="calCell '+cls.join(" ")+'">'+c.day+'</div>';
+  }).join("");
+  el.innerHTML='<div class="calHead">'+head+'</div><div class="calGrid">'+grid+'</div>';
+}
+
+/* ===== 夜間モードの判定・切り替え ===== */
 function inNight(d){
   if(!S.nightOn) return false;
   var h=d.getHours(), s=S.nightStart, e=S.nightEnd;
@@ -309,7 +442,7 @@ function applyNight(d){
   if(n) releaseWake(); else requestWake();
 }
 
-/* ---------- 画面を消さない ---------- */
+/* ===== 画面スリープ防止（Wake Lock） ===== */
 var wakeLock=null;
 function requestWake(){
   if(!("wakeLock" in navigator)) return;
@@ -319,7 +452,7 @@ function requestWake(){
 }
 function releaseWake(){ if(wakeLock){ try{wakeLock.release();}catch(e){} wakeLock=null; } }
 
-/* ---------- 天気 ---------- */
+/* ===== 天気データの取得・保存・描画 ===== */
 var fetchedAt=0, lastError="";
 function apiUrl(){
   return "https://api.open-meteo.com/v1/forecast?latitude="+S.lat+"&longitude="+S.lon+
@@ -382,15 +515,7 @@ function checkRain(h,st){
   el.className="";
 }
 function stamp(){
-  var el=$("updated"), note=$("note");
-  if(!fetchedAt){
-    el.textContent = lastError ? "天気を取得できませんでした" : "取得中";
-  } else {
-    var d=new Date(fetchedAt);
-    el.textContent=(lastError?"更新できません　":"")+"最終更新 "+pad(d.getHours())+":"+pad(d.getMinutes());
-  }
-  el.className=(lastError||(fetchedAt&&Date.now()-fetchedAt>S.refresh*180000))?"stale":"";
-
+  var note=$("note");
   if(lastError && location.protocol==="file:"){
     note.textContent="このファイルを file:// で直接開いているため、ブラウザの制限で天気を取得できません。https のサーバーに置くと表示されます。";
     note.className="on";
@@ -400,7 +525,7 @@ function stamp(){
   } else { note.className=""; }
 }
 
-/* ---------- 設定パネル ---------- */
+/* ===== 設定パネル（開閉・各項目の反映） ===== */
 var backup=null;
 function openPanel(){
   backup=JSON.parse(JSON.stringify(S));
@@ -413,6 +538,8 @@ function fillPanel(){
   $("sDate").value=S.dateSize;   $("vDate").textContent=S.dateSize+"px";
   $("sFg").value=S.fg;           $("vFg").textContent=S.fg;
   $("sSec").checked=S.showSec;
+  $("sClockFont").value=S.clockFont;
+  $("sDateFont").value=S.dateFont;
   $("sHourColor").value=S.hourColor; $("sMinColor").value=S.minColor; $("sSecColor").value=S.secColor;
   $("sDateColor").value=S.dateColor; $("sDowColor").value=S.dowColor;
   $("sNightOn").checked=S.nightOn;
@@ -424,6 +551,9 @@ function fillPanel(){
   $("sWeatherScale").value=S.weatherScale; $("vWeatherScale").textContent=S.weatherScale+"%";
   $("sTempColor").value=S.tempColor; $("sDescColor").value=S.descColor;
   $("sHiloColor").value=S.hiloColor; $("sHourFcColor").value=S.hourFcColor;
+  $("sCalOn").checked=S.calendarOn;
+  $("sCalScale").value=S.calScale; $("vCalScale").textContent=S.calScale+"%";
+  $("sCalSun").value=S.calSunColor; $("sCalSat").value=S.calSatColor; $("sCalHoliday").value=S.calHolidayColor;
   seg("segH",S.hpos); seg("segV",S.vpos);
 }
 function seg(id,v){
@@ -441,9 +571,12 @@ bindRange("sClock","clockSize","vClock","px");
 bindRange("sDate","dateSize","vDate","px");
 bindRange("sNightBr","nightBr","vNightBr","%");
 bindRange("sWeatherScale","weatherScale","vWeatherScale","%");
+bindRange("sCalScale","calScale","vCalScale","%");
 
 $("sFg").addEventListener("input",function(){ S.fg=this.value; $("vFg").textContent=S.fg; apply(); });
 $("sSec").addEventListener("change",function(){ S.showSec=this.checked; apply(); });
+$("sClockFont").addEventListener("change",function(){ S.clockFont=this.value; apply(); });
+$("sDateFont").addEventListener("change",function(){ S.dateFont=this.value; apply(); });
 
 function bindColor(id,key){
   $(id).addEventListener("input",function(){ S[key]=this.value; apply(); });
@@ -452,6 +585,8 @@ bindColor("sHourColor","hourColor"); bindColor("sMinColor","minColor"); bindColo
 bindColor("sDateColor","dateColor"); bindColor("sDowColor","dowColor");
 bindColor("sTempColor","tempColor"); bindColor("sDescColor","descColor");
 bindColor("sHiloColor","hiloColor"); bindColor("sHourFcColor","hourFcColor");
+bindColor("sCalSun","calSunColor"); bindColor("sCalSat","calSatColor"); bindColor("sCalHoliday","calHolidayColor");
+$("sCalOn").addEventListener("change",function(){ S.calendarOn=this.checked; apply(); });
 $("sNightOn").addEventListener("change",function(){ S.nightOn=this.checked; apply(); });
 $("sWeatherOn").addEventListener("change",function(){
   S.weatherOn=this.checked; apply(); if(S.weatherOn) loadWeather();
@@ -492,7 +627,7 @@ $("btnReset").addEventListener("click",function(){
   S=JSON.parse(JSON.stringify(DEFAULTS)); apply(); fillPanel();
 });
 
-/* ---------- 操作：長押しで設定、タップで全画面 ---------- */
+/* ===== 操作：長押しで設定パネル、タップで全画面表示 ===== */
 var pressTimer=null, longPressed=false;
 function startPress(){
   longPressed=false;
@@ -513,7 +648,7 @@ $("screen").addEventListener("click",function(){
   else if(e.webkitRequestFullscreen) e.webkitRequestFullscreen();
 });
 
-/* ---------- 画面サイズに合わせて拡大縮小する ---------- */
+/* ===== 画面サイズに合わせて拡大縮小（1280×800基準） ===== */
 var REF_W=1280, REF_H=800;
 function fitStage(){
   var vw=window.innerWidth, vh=window.innerHeight;
@@ -524,7 +659,7 @@ function fitStage(){
 window.addEventListener("resize", fitStage);
 window.addEventListener("orientationchange", function(){ setTimeout(fitStage,300); });
 
-/* ---------- 起動 ---------- */
+/* ===== 起動処理・定期実行タイマー ===== */
 var tWeather=null;
 function restartTimers(){
   if(tWeather) clearInterval(tWeather);
@@ -535,6 +670,8 @@ apply();
 fitStage();
 restore();
 tickClock();
+loadHolidays();
+renderCalendar();
 loadWeather();
 setInterval(tickClock,1000);
 setInterval(stamp,60000);
