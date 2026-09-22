@@ -112,7 +112,7 @@ body.night #md,body.night #dow{color:var(--night-fg);}
    #left内部は元々「時計→日付→カレンダー」の順なので自然に希望の並びになる */
 body.portrait #screen{position:fixed;inset:0;width:100vw;height:100vh;
   display:flex;flex-direction:column;align-items:center;justify-content:center;
-  gap:min(3.2vh,26px);padding:4vh 6vw;}
+  gap:min(3.2vh,26px);padding:9vh 7vw;}
 body.portrait #left{align-items:center;text-align:center;justify-content:flex-start;width:100%;flex:none;}
 body.portrait #date{align-self:center;text-align:center;}
 body.portrait #cal{align-self:center;}
@@ -229,7 +229,7 @@ body.night #hint{display:none;}
         </div></div>
 
       <div class="sec">縦置き（ポートレート）</div>
-      <div class="row"><label>縦置き時に自動でバランス調整する</label><input type="checkbox" id="sPortraitAuto"></div>
+      <div class="row"><label>縦置き時も上の数値設定でサイズを決める（OFF）／画面の高さから自動計算する（ON）</label><input type="checkbox" id="sPortraitAuto"></div>
 
       <div class="sec">カレンダー</div>
       <div class="row"><label>カレンダーを表示する</label><input type="checkbox" id="sCalOn"></div>
@@ -313,7 +313,7 @@ var DEFAULTS = {
   weatherOn:true, lat:36.0835, lon:140.0764, refresh:15, rainThreshold:50,
   weatherScale:100, tempColor:"#EEF1F5", descColor:"#EEF1F5", hiloColor:"#7E8894", hourFcColor:"#EEF1F5",
   calendarOn:true, calScale:100, calSunColor:"#E8706F", calSatColor:"#6F9EE8", calHolidayColor:"#E8706F",
-  portraitAuto:true
+  portraitAuto:false
 };
 var KEY_S = "dash.settings", KEY_W = "dash.weather";
 var S = load();
