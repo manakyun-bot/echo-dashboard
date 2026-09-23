@@ -125,6 +125,12 @@ body.portrait #screen{position:fixed;inset:0;width:100vw;height:100vh;
 body.portrait #board{grid-template-columns:1fr;grid-template-rows:repeat(4,1fr);gap:1.8vh;}
 body.portrait.noweather #board{grid-template-rows:1fr 1fr;}
 body.portrait .cell{gap:1vh;}
+/* 縦置きのときだけ「時計＋日付→カレンダー→天気→これからの天気」の順にする
+   （横置きはHTMLの並び順＝時計→天気→カレンダー→これからの天気のまま変更しない） */
+body.portrait #cellClock{order:1;}
+body.portrait #cellCal{order:2;}
+body.portrait #cellWeather{order:3;}
+body.portrait #cellHours{order:4;}
 body.portrait #cal{width:min(92vw,380px);}
 body.portrait .card{max-width:92vw;}
 body.portrait #alert,body.portrait #note{width:100%;max-width:92vw;}
