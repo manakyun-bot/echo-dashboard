@@ -23,6 +23,7 @@
   --clock-font:"Roboto","Noto Sans CJK JP","Droid Sans Japanese",sans-serif;
   --date-font:"Roboto","Noto Sans CJK JP","Droid Sans Japanese",sans-serif;
   --cal-scale:1; --cal-sun-color:#E8706F; --cal-sat-color:#6F9EE8; --cal-holiday-color:#E8706F;
+  --bg-dark:.45;
 }
 
 /* ===== 全体のリセット・基本スタイル ===== */
@@ -30,6 +31,14 @@
 html,body{height:100%;background:var(--bg);color:var(--fg);overflow:hidden;position:relative;
   font-family:"Roboto","Noto Sans CJK JP","Droid Sans Japanese",sans-serif;
   -webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;}
+
+/* ===== 背景画像（時間帯＋天気で自動切り替え、2枚重ねでクロスフェード） ===== */
+.bgLayer{position:fixed;inset:0;background-size:cover;background-position:center;
+  background-repeat:no-repeat;opacity:0;transition:opacity 1.6s ease;z-index:0;}
+.bgLayer.on{opacity:1;}
+#bgOverlay{position:fixed;inset:0;z-index:0;pointer-events:none;
+  background:rgba(0,0,0,var(--bg-dark));}
+#screen{position:relative;z-index:1;}
 
 /* ===== 画面全体のレイアウト（時計日付／カレンダー／天気／これからの天気を十字に4分割） ===== */
 #screen{position:absolute;top:0;left:0;width:1280px;height:800px;
@@ -196,6 +205,10 @@ body.night #hint{display:none;}
 </head>
 <body>
 
+<div id="bg1" class="bgLayer"></div>
+<div id="bg2" class="bgLayer"></div>
+<div id="bgOverlay"></div>
+
 <div id="screen">
   <div id="board">
     <div class="cell" id="cellClock">
@@ -300,6 +313,15 @@ body.night #hint{display:none;}
       <div class="row"><label>天気の説明の色</label><input type="color" id="sDescColor"></div>
       <div class="row"><label>最高/最低/体感の色</label><input type="color" id="sHiloColor"></div>
       <div class="row"><label>時間ごとの予報の色</label><input type="color" id="sHourFcColor"></div>
+
+      <div class="sec">背景画像</div>
+      <div class="row"><label>背景画像を表示する</label><input type="checkbox" id="sBgOn"></div>
+      <div class="row"><label>暗さ（文字の読みやすさ調整）</label>
+        <input type="range" id="sBgDark" min="0" max="80" step="5"><span class="val" id="vBgDark"></span></div>
+      <div class="row"><label>朝の開始</label><select id="sBgMorning"></select></div>
+      <div class="row"><label>昼の開始</label><select id="sBgDay"></select></div>
+      <div class="row"><label>夕方の開始</label><select id="sBgEvening"></select></div>
+      <div class="row"><label>夜の開始</label><select id="sBgNight"></select></div>
     </div>
   </div>
 
@@ -351,7 +373,8 @@ var DEFAULTS = {
   weatherOn:true, lat:36.0835, lon:140.0764, refresh:15, rainThreshold:50,
   weatherScale:100, tempColor:"#EEF1F5", descColor:"#EEF1F5", hiloColor:"#7E8894", hourFcColor:"#EEF1F5",
   calendarOn:true, calScale:100, calSunColor:"#E8706F", calSatColor:"#6F9EE8", calHolidayColor:"#E8706F",
-  portraitAuto:false
+  portraitAuto:false,
+  bgOn:true, bgDark:45, bgMorningStart:5, bgDayStart:8, bgEveningStart:17, bgNightStart:19
 };
 var KEY_S = "dash.settings", KEY_W = "dash.weather";
 var S = load();
@@ -392,6 +415,8 @@ function apply(){
   r.setProperty("--cal-sun-color", S.calSunColor);
   r.setProperty("--cal-sat-color", S.calSatColor);
   r.setProperty("--cal-holiday-color", S.calHolidayColor);
+  r.setProperty("--bg-dark", S.bgDark / 100);
+  updateBackground();
   var g = Math.round(255 * S.nightBr / 100);
   r.setProperty("--night-fg", "rgb(" + g + "," + (g+4) + "," + (g+8) + ")");
   setClass();
@@ -434,6 +459,64 @@ storm:'<path d="M19 34a11 11 0 0 1 1.2-21.9 14.5 14.5 0 0 1 27.5 4.4A9.5 9.5 0 0
 
 function svg(n){ return '<svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">'+(ICON[n]||ICON.cloud)+'</svg>'; }
 
+/* ===== 背景画像（時間帯＋天気で自動切り替え） ===== */
+var BG_IMG = {
+  morning:  "images/back-morning.jpg",
+  sunny:    "images/back-sunny.jpg",
+  cloud:    "images/back-cloud.jpg",
+  rain:     "images/back-rain.jpg",
+  evening:  "images/back-unset.jpg",
+  night:    "images/back-night.jpg",
+  nightRain:"images/back-night-rain.jpg"
+};
+var lastWeatherCode=0, bgActive=1, bgCurrentKey=null;
+
+function preloadBackgrounds(){
+  for (var k in BG_IMG){ var im=new Image(); im.src=BG_IMG[k]; }
+}
+/* 時間帯の判定（朝／昼／夕方／夜、境界は設定パネルで変更可） */
+function bgPeriod(h){
+  var m=S.bgMorningStart, d=S.bgDayStart, e=S.bgEveningStart, n=S.bgNightStart;
+  if (h>=n || h<m) return "night";
+  if (h<d) return "morning";
+  if (h<e) return "day";
+  return "evening";
+}
+/* 天気コードを「晴れ／曇り／雨」の3グループに分類（雪も雨背景で代用） */
+function weatherBgGroup(code){
+  var icon=(WMO[code]||["","cloud"])[1];
+  if (icon==="sun" || icon==="partly") return "sunny";
+  if (icon==="drizzle" || icon==="rain" || icon==="storm" || icon==="snow") return "rain";
+  return "cloud";
+}
+function bgKeyFor(period,group){
+  if (period==="night") return group==="rain" ? "nightRain" : "night";
+  if (period==="morning") return "morning";
+  if (period==="evening") return "evening";
+  if (group==="rain") return "rain";
+  if (group==="cloud") return "cloud";
+  return "sunny";
+}
+function updateBackground(){
+  var b1=$("bg1"), b2=$("bg2");
+  if (!S.bgOn){ b1.className="bgLayer"; b2.className="bgLayer"; bgCurrentKey=null; return; }
+  var period=bgPeriod(new Date().getHours());
+  var group=weatherBgGroup(lastWeatherCode);
+  var key=bgKeyFor(period,group);
+  if (key===bgCurrentKey) return;
+  bgCurrentKey=key;
+  var nextId = bgActive===1 ? "bg2" : "bg1", curId = bgActive===1 ? "bg1" : "bg2";
+  var next=$(nextId);
+  next.style.backgroundImage="url('"+BG_IMG[key]+"')";
+  requestAnimationFrame(function(){
+    requestAnimationFrame(function(){
+      next.className="bgLayer on";
+      $(curId).className="bgLayer";
+    });
+  });
+  bgActive = bgActive===1 ? 2 : 1;
+}
+
 /* ===== 時計・日付の表示更新 ===== */
 var DOW=["日","月","火","水","木","金","土"];
 var lastMin=-1,lastDay=-1,isNight=null,isPortrait=false;
@@ -447,6 +530,7 @@ function tickClock(){
     $("hh").textContent=pad(d.getHours());
     $("mm").textContent=pad(m);
     applyNight(d);
+    updateBackground();
   }
   if(d.getDate()!==lastDay){
     lastDay=d.getDate();
@@ -560,6 +644,7 @@ function restore(){
 }
 function render(w){
   var now=w.current, code=WMO[now.weather_code]||["不明","cloud"];
+  lastWeatherCode=now.weather_code; updateBackground();
   $("icon").innerHTML=svg(code[1]);
   $("temp").innerHTML=Math.round(now.temperature_2m)+"<span>°</span>";
   $("desc").textContent=code[0];
@@ -630,6 +715,10 @@ function fillPanel(){
   $("sTempColor").value=S.tempColor; $("sDescColor").value=S.descColor;
   $("sHiloColor").value=S.hiloColor; $("sHourFcColor").value=S.hourFcColor;
   $("sPortraitAuto").checked=S.portraitAuto;
+  $("sBgOn").checked=S.bgOn;
+  $("sBgDark").value=S.bgDark; $("vBgDark").textContent=S.bgDark+"%";
+  $("sBgMorning").value=S.bgMorningStart; $("sBgDay").value=S.bgDayStart;
+  $("sBgEvening").value=S.bgEveningStart; $("sBgNight").value=S.bgNightStart;
   $("sCalOn").checked=S.calendarOn;
   $("sCalScale").value=S.calScale; $("vCalScale").textContent=S.calScale+"%";
   $("sCalSun").value=S.calSunColor; $("sCalSat").value=S.calSatColor; $("sCalHoliday").value=S.calHolidayColor;
@@ -651,6 +740,7 @@ bindRange("sDate","dateSize","vDate","px");
 bindRange("sNightBr","nightBr","vNightBr","%");
 bindRange("sWeatherScale","weatherScale","vWeatherScale","%");
 bindRange("sCalScale","calScale","vCalScale","%");
+bindRange("sBgDark","bgDark","vBgDark","%");
 
 $("sFg").addEventListener("input",function(){ S.fg=this.value; $("vFg").textContent=S.fg; apply(); });
 $("sSec").addEventListener("change",function(){ S.showSec=this.checked; apply(); });
@@ -667,6 +757,7 @@ bindColor("sHiloColor","hiloColor"); bindColor("sHourFcColor","hourFcColor");
 bindColor("sCalSun","calSunColor"); bindColor("sCalSat","calSatColor"); bindColor("sCalHoliday","calHolidayColor");
 $("sCalOn").addEventListener("change",function(){ S.calendarOn=this.checked; apply(); });
 $("sPortraitAuto").addEventListener("change",function(){ S.portraitAuto=this.checked; apply(); });
+$("sBgOn").addEventListener("change",function(){ S.bgOn=this.checked; apply(); });
 $("sNightOn").addEventListener("change",function(){ S.nightOn=this.checked; apply(); });
 $("sWeatherOn").addEventListener("change",function(){
   S.weatherOn=this.checked; apply(); if(S.weatherOn) loadWeather();
@@ -678,6 +769,18 @@ $("sWeatherOn").addEventListener("change",function(){
   a.innerHTML=o; b.innerHTML=o;
   a.addEventListener("change",function(){ S.nightStart=parseInt(this.value,10); apply(); });
   b.addEventListener("change",function(){ S.nightEnd=parseInt(this.value,10); apply(); });
+})();
+
+(function(){
+  var ids=["sBgMorning","sBgDay","sBgEvening","sBgNight"];
+  var keys=["bgMorningStart","bgDayStart","bgEveningStart","bgNightStart"];
+  var o=""; for(var h=0;h<24;h++) o+='<option value="'+h+'">'+pad(h)+':00</option>';
+  for(var i=0;i<ids.length;i++){
+    $(ids[i]).innerHTML=o;
+    (function(key){
+      $(ids[i]).addEventListener("change",function(){ S[key]=parseInt(this.value,10); apply(); });
+    })(keys[i]);
+  }
 })();
 
 function bindNum(id,key,isFloat){
@@ -748,6 +851,7 @@ function restartTimers(){
   tWeather=setInterval(loadWeather, S.refresh*60000);
 }
 
+preloadBackgrounds();
 apply();
 fitStage();
 restore();
