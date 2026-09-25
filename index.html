@@ -280,7 +280,16 @@ body.night #hint{display:none;}
         </div></div>
 
       <div class="sec">縦置き（ポートレート）</div>
-      <div class="row"><label>縦置き時も上の数値設定でサイズを決める（OFF）／画面の高さから自動計算する（ON）</label><input type="checkbox" id="sPortraitAuto"></div>
+      <div class="row"><label>画面の高さから自動計算する（ON）／下の縦置き専用サイズを使う（OFF）</label><input type="checkbox" id="sPortraitAuto"></div>
+      <div class="row"><label>縦置き時の時計の大きさ</label>
+        <input type="range" id="sPortraitClock" min="60" max="260" step="5"><span class="val" id="vPortraitClock"></span></div>
+      <div class="row"><label>縦置き時の日付の大きさ</label>
+        <input type="range" id="sPortraitDate" min="14" max="70" step="2"><span class="val" id="vPortraitDate"></span></div>
+      <div class="row"><label>縦置き時の天気の大きさ</label>
+        <input type="range" id="sPortraitWeatherScale" min="50" max="160" step="5"><span class="val" id="vPortraitWeatherScale"></span></div>
+      <div class="row"><label>縦置き時のカレンダーの大きさ</label>
+        <input type="range" id="sPortraitCalScale" min="50" max="160" step="5"><span class="val" id="vPortraitCalScale"></span></div>
+      <div class="lead" style="margin:6px 0 0">横置き時の大きさは上の「時計と日付」「カレンダー」「天気の見た目」の数値がそのまま使われます。ここは縦置き専用です。</div>
 
       <div class="sec">カレンダー</div>
       <div class="row"><label>カレンダーを表示する</label><input type="checkbox" id="sCalOn"></div>
@@ -374,6 +383,7 @@ var DEFAULTS = {
   weatherScale:100, tempColor:"#EEF1F5", descColor:"#EEF1F5", hiloColor:"#7E8894", hourFcColor:"#EEF1F5",
   calendarOn:true, calScale:100, calSunColor:"#E8706F", calSatColor:"#6F9EE8", calHolidayColor:"#E8706F",
   portraitAuto:false,
+  portraitClockSize:110, portraitDateSize:22, portraitWeatherScale:75, portraitCalScale:75,
   bgOn:true, bgDark:45, bgMorningStart:5, bgDayStart:8, bgEveningStart:17, bgNightStart:19
 };
 var KEY_S = "dash.settings", KEY_W = "dash.weather";
@@ -390,11 +400,19 @@ function load(){
 }
 function save(){ try{ localStorage.setItem(KEY_S, JSON.stringify(S)); }catch(e){} }
 
+/* 縦置き／横置きで別々に保存しているサイズ系（時計・日付・天気・カレンダー）だけを反映する。
+   向きが切り替わった瞬間にもこれを呼ぶことで、回転直後から正しい大きさで表示される。 */
+function applySizeVars(){
+  var r = document.documentElement.style;
+  r.setProperty("--clock-size",   (isPortrait ? S.portraitClockSize    : S.clockSize)    + "px");
+  r.setProperty("--date-size",    (isPortrait ? S.portraitDateSize     : S.dateSize)     + "px");
+  r.setProperty("--weather-scale",(isPortrait ? S.portraitWeatherScale : S.weatherScale) / 100);
+  r.setProperty("--cal-scale",    (isPortrait ? S.portraitCalScale     : S.calScale)     / 100);
+}
 function apply(){
   updateOrientation();
   var r = document.documentElement.style;
-  r.setProperty("--clock-size", S.clockSize + "px");
-  r.setProperty("--date-size",  S.dateSize + "px");
+  applySizeVars();
   r.setProperty("--fg", S.fg);
   r.setProperty("--clock-font", FONT_CSS[S.clockFont] || FONT_CSS.default);
   r.setProperty("--date-font", FONT_CSS[S.dateFont] || FONT_CSS.default);
@@ -406,12 +424,10 @@ function apply(){
   r.setProperty("--ss-color", S.secColor);
   r.setProperty("--date-md-color", S.dateColor);
   r.setProperty("--date-dow-color", S.dowColor);
-  r.setProperty("--weather-scale", S.weatherScale / 100);
   r.setProperty("--temp-color", S.tempColor);
   r.setProperty("--desc-color", S.descColor);
   r.setProperty("--hilo-color", S.hiloColor);
   r.setProperty("--hourfc-color", S.hourFcColor);
-  r.setProperty("--cal-scale", S.calScale / 100);
   r.setProperty("--cal-sun-color", S.calSunColor);
   r.setProperty("--cal-sat-color", S.calSatColor);
   r.setProperty("--cal-holiday-color", S.calHolidayColor);
@@ -431,9 +447,13 @@ function setClass(){
   if (isPortrait) { c.push("portrait"); if (S.portraitAuto) c.push("portrait-auto"); }
   document.body.className = c.join(" ");
 }
-/* ===== 画面の向き（縦置き／横置き）の判定 ===== */
+/* ===== 画面の向き（縦置き／横置き）の判定 =====
+   向きが実際に変わった瞬間だけ applySizeVars() を呼び直すことで、
+   横→縦・縦→横のどちらに回転しても、その向き用に保存した大きさへ自動的に切り替わる。 */
 function updateOrientation(){
+  var was = isPortrait;
   isPortrait = window.innerHeight > window.innerWidth;
+  if (isPortrait !== was) applySizeVars();
   setClass();
 }
 
@@ -461,18 +481,33 @@ function svg(n){ return '<svg viewBox="0 0 64 64" fill="none" xmlns="http://www.
 
 /* ===== 背景画像（時間帯＋天気で自動切り替え） ===== */
 var BG_IMG = {
-  morning:  "images/back-morning.jpg",
-  sunny:    "images/back-sunny.jpg",
-  cloud:    "images/back-cloud.jpg",
-  rain:     "images/back-rain.jpg",
-  evening:  "images/back-unset.jpg",
-  night:    "images/back-night.jpg",
-  nightRain:"images/back-night-rain.jpg"
+  morning:   "images/back-morning.jpg",
+  sunny:     "images/back-sunny.jpg",
+  clear:     "images/back-clear.jpg",
+  cloud:     "images/back-cloud.jpg",
+  rain:      "images/back-rain.jpg",
+  snow:      "images/back-snow.jpg",
+  thunder:   "images/back-thunder.jpg",
+  fog:       "images/back-fog.jpg",
+  evening:   "images/back-sunset.jpg",
+  night:     "images/back-night.jpg",
+  nightRain: "images/back-night-rain.jpg",
+  nightCloud:"images/back-night-cloud.jpg"
 };
 var lastWeatherCode=0, bgActive=1, bgCurrentKey=null;
+var bgLoaded={}; // 読み込みに成功した画像キーを記録（失敗診断用）
 
 function preloadBackgrounds(){
-  for (var k in BG_IMG){ var im=new Image(); im.src=BG_IMG[k]; }
+  var _loop = function(k){
+    var im=new Image();
+    im.onload=function(){ bgLoaded[k]=true; };
+    im.onerror=function(){
+      bgLoaded[k]=false;
+      console.warn("[背景画像] 読み込み失敗: "+BG_IMG[k]+"（ファイル名の大文字小文字・拡張子・スペースをGitHub上で確認してください）");
+    };
+    im.src=BG_IMG[k];
+  };
+  for (var k in BG_IMG) _loop(k);
 }
 /* 時間帯の判定（朝／昼／夕方／夜、境界は設定パネルで変更可） */
 function bgPeriod(h){
@@ -482,18 +517,32 @@ function bgPeriod(h){
   if (h<e) return "day";
   return "evening";
 }
-/* 天気コードを「晴れ／曇り／雨」の3グループに分類（雪も雨背景で代用） */
+/* 天気コード（WMO）を背景画像用のグループに分類
+   優先順位：雷雨・嵐 ＞ 雪 ＞ 濃霧 ＞ 雨 ＞ 快晴／晴れ／曇り */
 function weatherBgGroup(code){
-  var icon=(WMO[code]||["","cloud"])[1];
-  if (icon==="sun" || icon==="partly") return "sunny";
-  if (icon==="drizzle" || icon==="rain" || icon==="storm" || icon==="snow") return "rain";
-  return "cloud";
+  if (code===95 || code===96 || code===99) return "thunder";
+  if ([71,73,75,77,85,86].indexOf(code)>=0) return "snow";
+  if (code===45 || code===48) return "fog";
+  if ([51,53,55,56,57,61,63,65,66,67,80,81,82].indexOf(code)>=0) return "rain";
+  if (code===0) return "clear";
+  if (code===1) return "sunny";
+  return "cloud"; // 2:薄曇り, 3:曇り、および未知コードはここに含める
 }
+/* 時間帯とグループから、実際に使う背景画像のキーを決定
+   朝・夕方は天気に関わらず固定。夜は雨/雷→夜雨、曇り/霧→曇りの夜、それ以外→通常の夜。 */
 function bgKeyFor(period,group){
-  if (period==="night") return group==="rain" ? "nightRain" : "night";
   if (period==="morning") return "morning";
   if (period==="evening") return "evening";
+  if (period==="night"){
+    if (group==="rain" || group==="thunder") return "nightRain";
+    if (group==="cloud" || group==="fog") return "nightCloud";
+    return "night";
+  }
+  if (group==="thunder") return "thunder";
+  if (group==="snow") return "snow";
+  if (group==="fog") return "fog";
   if (group==="rain") return "rain";
+  if (group==="clear") return "clear";
   if (group==="cloud") return "cloud";
   return "sunny";
 }
@@ -503,7 +552,12 @@ function updateBackground(){
   var period=bgPeriod(new Date().getHours());
   var group=weatherBgGroup(lastWeatherCode);
   var key=bgKeyFor(period,group);
+  if (!BG_IMG[key]){ console.warn("[背景画像] 未定義のキー: "+key); return; }
   if (key===bgCurrentKey) return;
+  if (bgLoaded[key]===false){
+    console.warn("[背景画像] "+key+"（"+BG_IMG[key]+"）は読み込みに失敗しているため、切り替えをスキップしました");
+    return;
+  }
   bgCurrentKey=key;
   var nextId = bgActive===1 ? "bg2" : "bg1", curId = bgActive===1 ? "bg1" : "bg2";
   var next=$(nextId);
@@ -715,6 +769,10 @@ function fillPanel(){
   $("sTempColor").value=S.tempColor; $("sDescColor").value=S.descColor;
   $("sHiloColor").value=S.hiloColor; $("sHourFcColor").value=S.hourFcColor;
   $("sPortraitAuto").checked=S.portraitAuto;
+  $("sPortraitClock").value=S.portraitClockSize; $("vPortraitClock").textContent=S.portraitClockSize+"px";
+  $("sPortraitDate").value=S.portraitDateSize;   $("vPortraitDate").textContent=S.portraitDateSize+"px";
+  $("sPortraitWeatherScale").value=S.portraitWeatherScale; $("vPortraitWeatherScale").textContent=S.portraitWeatherScale+"%";
+  $("sPortraitCalScale").value=S.portraitCalScale; $("vPortraitCalScale").textContent=S.portraitCalScale+"%";
   $("sBgOn").checked=S.bgOn;
   $("sBgDark").value=S.bgDark; $("vBgDark").textContent=S.bgDark+"%";
   $("sBgMorning").value=S.bgMorningStart; $("sBgDay").value=S.bgDayStart;
@@ -740,6 +798,10 @@ bindRange("sDate","dateSize","vDate","px");
 bindRange("sNightBr","nightBr","vNightBr","%");
 bindRange("sWeatherScale","weatherScale","vWeatherScale","%");
 bindRange("sCalScale","calScale","vCalScale","%");
+bindRange("sPortraitClock","portraitClockSize","vPortraitClock","px");
+bindRange("sPortraitDate","portraitDateSize","vPortraitDate","px");
+bindRange("sPortraitWeatherScale","portraitWeatherScale","vPortraitWeatherScale","%");
+bindRange("sPortraitCalScale","portraitCalScale","vPortraitCalScale","%");
 bindRange("sBgDark","bgDark","vBgDark","%");
 
 $("sFg").addEventListener("input",function(){ S.fg=this.value; $("vFg").textContent=S.fg; apply(); });
