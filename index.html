@@ -47,10 +47,15 @@ html,body{height:100%;background:var(--bg);color:var(--fg);overflow:hidden;posit
 #board{flex:1;min-height:0;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:26px;}
 .cell{min-width:0;min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
   gap:16px;overflow:hidden;}
-/* 下部：将来ニュースを横スクロール表示するためのスペース（現状はプレースホルダー） */
-#newsBar{flex:none;height:56px;display:flex;align-items:center;justify-content:center;
+/* 下部：ニュース見出しの横スクロール表示（STEP6） */
+#newsBar{flex:none;height:56px;display:flex;align-items:center;
   border-top:1px solid var(--line);color:var(--muted);font-size:19px;letter-spacing:.02em;
-  white-space:nowrap;overflow:hidden;}
+  overflow:hidden;position:relative;}
+#newsTrack{width:100%;overflow:hidden;}
+#newsText{display:inline-flex;white-space:nowrap;animation:newsScroll linear infinite;animation-duration:40s;}
+#newsText .unit{padding-right:90px;}
+@keyframes newsScroll{ from{transform:translateX(0);} to{transform:translateX(-50%);} }
+body.nonews #newsBar{display:none;}
 
 /* 天気を非表示にしたときは、時計とカレンダーの2エリアだけを縦に並べる */
 body.noweather #board{grid-template-columns:1fr;grid-template-rows:1fr 1fr;}
@@ -187,6 +192,8 @@ input[type=range]{width:210px;}
 input[type=color]{width:60px;height:36px;background:none;border:1px solid var(--line);border-radius:6px;padding:2px;}
 input[type=number]{width:120px;font-size:19px;padding:7px 9px;background:#12171F;color:var(--fg);
   border:1px solid var(--line);border-radius:6px;}
+input[type=text]{width:100%;font-size:19px;padding:7px 9px;background:#12171F;color:var(--fg);
+  border:1px solid var(--line);border-radius:6px;}
 select{font-size:19px;padding:7px 9px;background:#12171F;color:var(--fg);border:1px solid var(--line);border-radius:6px;}
 input[type=checkbox]{width:24px;height:24px;}
 .seg{display:flex;gap:6px;}
@@ -238,7 +245,7 @@ body.night #hint{display:none;}
       <div id="note"></div>
     </div>
   </div>
-  <div id="newsBar"><span>ニュース欄（今後、横スクロールのニュースをここに表示予定）</span></div>
+  <div id="newsBar"><div id="newsTrack"><span id="newsText"><span class="unit">ニュースを読み込み中…</span><span class="unit">ニュースを読み込み中…</span></span></div></div>
 </div>
 
 <div id="hint">画面を長押しすると設定が開きます</div>
@@ -331,6 +338,12 @@ body.night #hint{display:none;}
       <div class="row"><label>昼の開始</label><select id="sBgDay"></select></div>
       <div class="row"><label>夕方の開始</label><select id="sBgEvening"></select></div>
       <div class="row"><label>夜の開始</label><select id="sBgNight"></select></div>
+
+      <div class="sec">ニュース</div>
+      <div class="row"><label>ニュースを表示する</label><input type="checkbox" id="sNewsOn"></div>
+      <div class="row"><label>取得先URL（Cloudflare Worker）</label></div>
+      <div class="row"><input type="text" id="sNewsUrl" placeholder="https://xxxx.workers.dev/?source=nhk"></div>
+      <div class="row"><label>更新間隔（分）</label><input type="number" id="sNewsRefresh" min="5" max="60" step="5"></div>
     </div>
   </div>
 
@@ -384,9 +397,10 @@ var DEFAULTS = {
   calendarOn:true, calScale:100, calSunColor:"#E8706F", calSatColor:"#6F9EE8", calHolidayColor:"#E8706F",
   portraitAuto:false,
   portraitClockSize:110, portraitDateSize:22, portraitWeatherScale:75, portraitCalScale:75,
-  bgOn:true, bgDark:45, bgMorningStart:5, bgDayStart:8, bgEveningStart:17, bgNightStart:19
+  bgOn:true, bgDark:45, bgMorningStart:5, bgDayStart:8, bgEveningStart:17, bgNightStart:19,
+  newsOn:true, newsUrl:"https://echo-dashboard-news.manattan-zukkyun.workers.dev/?source=nhk", newsRefresh:10
 };
-var KEY_S = "dash.settings", KEY_W = "dash.weather";
+var KEY_S = "dash.settings", KEY_W = "dash.weather", KEY_N = "dash.news";
 var S = load();
 
 function load(){
@@ -443,6 +457,7 @@ function setClass(){
   if (!S.showSec) c.push("nosec");
   if (!S.weatherOn) c.push("noweather");
   if (!S.calendarOn) c.push("nocal");
+  if (!S.newsOn) c.push("nonews");
   if (isNight) c.push("night");
   if (isPortrait) { c.push("portrait"); if (S.portraitAuto) c.push("portrait-auto"); }
   document.body.className = c.join(" ");
@@ -742,6 +757,46 @@ function stamp(){
   } else { note.className=""; }
 }
 
+/* ===== ニュース（STEP6）：Cloudflare Workerから見出しを取得して横スクロール表示 ===== */
+function esc(s){
+  return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+}
+function setNewsText(text){
+  if(!text) return;
+  var u = '<span class="unit">'+esc(text)+'</span>';
+  $("newsText").innerHTML = u+u;
+  // 表示直後に幅を測って、文字量に応じたスクロール速度（秒）を決める
+  requestAnimationFrame(function(){
+    var unit = $("newsText").querySelector(".unit");
+    if(!unit) return;
+    var w = unit.offsetWidth, speed = 90; // 1秒あたり約90px
+    var dur = Math.max(15, Math.round(w/speed));
+    $("newsText").style.animationDuration = dur+"s";
+  });
+}
+function loadNews(){
+  if(!S.newsOn || !S.newsUrl) return;
+  fetch(S.newsUrl).then(function(r){
+    if(!r.ok) throw new Error("HTTP "+r.status);
+    return r.json();
+  }).then(function(j){
+    var items = j.items||[];
+    if(!items.length) return;
+    var text = items.map(function(it){ return it.title; }).join("　　●　　");
+    try{ localStorage.setItem(KEY_N, JSON.stringify({at:Date.now(), text:text})); }catch(e){}
+    setNewsText(text);
+  })["catch"](function(err){
+    // 取得に失敗しても表示中のニュースはそのまま残す（真っ暗にしない）
+    console.warn("news fetch failed:", err && err.message ? err.message : err);
+  });
+}
+function restoreNews(){
+  try{
+    var raw=localStorage.getItem(KEY_N); if(!raw) return;
+    var c=JSON.parse(raw); if(c && c.text) setNewsText(c.text);
+  }catch(e){}
+}
+
 /* ===== 設定パネル（開閉・各項目の反映） ===== */
 var backup=null;
 function openPanel(){
@@ -780,6 +835,7 @@ function fillPanel(){
   $("sCalOn").checked=S.calendarOn;
   $("sCalScale").value=S.calScale; $("vCalScale").textContent=S.calScale+"%";
   $("sCalSun").value=S.calSunColor; $("sCalSat").value=S.calSatColor; $("sCalHoliday").value=S.calHolidayColor;
+  $("sNewsOn").checked=S.newsOn; $("sNewsUrl").value=S.newsUrl; $("sNewsRefresh").value=S.newsRefresh;
   seg("segH",S.hpos); seg("segV",S.vpos);
 }
 function seg(id,v){
@@ -824,6 +880,10 @@ $("sNightOn").addEventListener("change",function(){ S.nightOn=this.checked; appl
 $("sWeatherOn").addEventListener("change",function(){
   S.weatherOn=this.checked; apply(); if(S.weatherOn) loadWeather();
 });
+$("sNewsOn").addEventListener("change",function(){
+  S.newsOn=this.checked; apply(); if(S.newsOn) loadNews();
+});
+$("sNewsUrl").addEventListener("change",function(){ S.newsUrl=this.value.trim(); });
 
 (function(){
   var a=$("sNightStart"), b=$("sNightEnd"), o="";
@@ -853,6 +913,7 @@ function bindNum(id,key,isFloat){
 }
 bindNum("sLat","lat",true); bindNum("sLon","lon",true);
 bindNum("sRefresh","refresh"); bindNum("sRain","rainThreshold");
+bindNum("sNewsRefresh","newsRefresh");
 
 function bindSeg(id,key){
   $(id).addEventListener("click",function(e){
@@ -863,7 +924,7 @@ function bindSeg(id,key){
 bindSeg("segH","hpos"); bindSeg("segV","vpos");
 
 $("btnSave").addEventListener("click",function(){
-  save(); closePanel(); restartTimers(); loadWeather();
+  save(); closePanel(); restartTimers(); loadWeather(); loadNews();
 });
 $("btnCancel").addEventListener("click",function(){
   S=backup; apply(); closePanel();
@@ -907,10 +968,12 @@ window.addEventListener("resize", fitStage);
 window.addEventListener("orientationchange", function(){ setTimeout(fitStage,300); });
 
 /* ===== 起動処理・定期実行タイマー ===== */
-var tWeather=null;
+var tWeather=null, tNews=null;
 function restartTimers(){
   if(tWeather) clearInterval(tWeather);
   tWeather=setInterval(loadWeather, S.refresh*60000);
+  if(tNews) clearInterval(tNews);
+  tNews=setInterval(loadNews, S.newsRefresh*60000);
 }
 
 preloadBackgrounds();
@@ -921,6 +984,8 @@ tickClock();
 loadHolidays();
 renderCalendar();
 loadWeather();
+restoreNews();
+loadNews();
 setInterval(tickClock,1000);
 setInterval(stamp,60000);
 restartTimers();
@@ -932,6 +997,7 @@ document.addEventListener("visibilitychange",function(){
   tickClock();
   if(!isNight) requestWake();
   if(Date.now()-fetchedAt > S.refresh*60000) loadWeather();
+  loadNews();
 });
 
 setInterval(function(){
