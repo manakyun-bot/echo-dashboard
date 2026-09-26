@@ -24,6 +24,7 @@
   --date-font:"Roboto","Noto Sans CJK JP","Droid Sans Japanese",sans-serif;
   --cal-scale:1; --cal-sun-color:#E8706F; --cal-sat-color:#6F9EE8; --cal-holiday-color:#E8706F;
   --bg-dark:.45;
+  --news-size:19px; --news-color:#7E8894;
 }
 
 /* ===== 全体のリセット・基本スタイル ===== */
@@ -49,7 +50,7 @@ html,body{height:100%;background:var(--bg);color:var(--fg);overflow:hidden;posit
   gap:16px;overflow:hidden;}
 /* 下部：ニュース見出しの横スクロール表示（STEP6） */
 #newsBar{flex:none;height:56px;display:flex;align-items:center;
-  border-top:1px solid var(--line);color:var(--muted);font-size:19px;letter-spacing:.02em;
+  border-top:1px solid var(--line);color:var(--news-color);font-size:var(--news-size);letter-spacing:.02em;
   overflow:hidden;position:relative;}
 #newsTrack{width:100%;overflow:hidden;}
 #newsText{display:inline-flex;white-space:nowrap;animation:newsScroll linear infinite;animation-duration:40s;}
@@ -344,6 +345,9 @@ body.night #hint{display:none;}
       <div class="row"><label>取得先URL（Cloudflare Worker）</label></div>
       <div class="row"><input type="text" id="sNewsUrl" placeholder="https://xxxx.workers.dev/?source=nhk"></div>
       <div class="row"><label>更新間隔（分）</label><input type="number" id="sNewsRefresh" min="5" max="60" step="5"></div>
+      <div class="row"><label>ニュースの文字の大きさ</label>
+        <input type="range" id="sNewsSize" min="14" max="40" step="1"><span class="val" id="vNewsSize"></span></div>
+      <div class="row"><label>ニュースの文字色</label><input type="color" id="sNewsColor"></div>
     </div>
   </div>
 
@@ -398,7 +402,8 @@ var DEFAULTS = {
   portraitAuto:false,
   portraitClockSize:110, portraitDateSize:22, portraitWeatherScale:75, portraitCalScale:75,
   bgOn:true, bgDark:45, bgMorningStart:5, bgDayStart:8, bgEveningStart:17, bgNightStart:19,
-  newsOn:true, newsUrl:"https://echo-dashboard-news.manattan-zukkyun.workers.dev/?source=nhk", newsRefresh:10
+  newsOn:true, newsUrl:"https://echo-dashboard-news.manattan-zukkyun.workers.dev/?source=nhk", newsRefresh:10,
+  newsSize:19, newsColor:"#7E8894"
 };
 var KEY_S = "dash.settings", KEY_W = "dash.weather", KEY_N = "dash.news";
 var S = load();
@@ -446,6 +451,8 @@ function apply(){
   r.setProperty("--cal-sat-color", S.calSatColor);
   r.setProperty("--cal-holiday-color", S.calHolidayColor);
   r.setProperty("--bg-dark", S.bgDark / 100);
+  r.setProperty("--news-size", S.newsSize + "px");
+  r.setProperty("--news-color", S.newsColor);
   updateBackground();
   var g = Math.round(255 * S.nightBr / 100);
   r.setProperty("--night-fg", "rgb(" + g + "," + (g+4) + "," + (g+8) + ")");
@@ -836,6 +843,8 @@ function fillPanel(){
   $("sCalScale").value=S.calScale; $("vCalScale").textContent=S.calScale+"%";
   $("sCalSun").value=S.calSunColor; $("sCalSat").value=S.calSatColor; $("sCalHoliday").value=S.calHolidayColor;
   $("sNewsOn").checked=S.newsOn; $("sNewsUrl").value=S.newsUrl; $("sNewsRefresh").value=S.newsRefresh;
+  $("sNewsSize").value=S.newsSize; $("vNewsSize").textContent=S.newsSize+"px";
+  $("sNewsColor").value=S.newsColor;
   seg("segH",S.hpos); seg("segV",S.vpos);
 }
 function seg(id,v){
@@ -859,6 +868,7 @@ bindRange("sPortraitDate","portraitDateSize","vPortraitDate","px");
 bindRange("sPortraitWeatherScale","portraitWeatherScale","vPortraitWeatherScale","%");
 bindRange("sPortraitCalScale","portraitCalScale","vPortraitCalScale","%");
 bindRange("sBgDark","bgDark","vBgDark","%");
+bindRange("sNewsSize","newsSize","vNewsSize","px");
 
 $("sFg").addEventListener("input",function(){ S.fg=this.value; $("vFg").textContent=S.fg; apply(); });
 $("sSec").addEventListener("change",function(){ S.showSec=this.checked; apply(); });
@@ -873,6 +883,7 @@ bindColor("sDateColor","dateColor"); bindColor("sDowColor","dowColor");
 bindColor("sTempColor","tempColor"); bindColor("sDescColor","descColor");
 bindColor("sHiloColor","hiloColor"); bindColor("sHourFcColor","hourFcColor");
 bindColor("sCalSun","calSunColor"); bindColor("sCalSat","calSatColor"); bindColor("sCalHoliday","calHolidayColor");
+bindColor("sNewsColor","newsColor");
 $("sCalOn").addEventListener("change",function(){ S.calendarOn=this.checked; apply(); });
 $("sPortraitAuto").addEventListener("change",function(){ S.portraitAuto=this.checked; apply(); });
 $("sBgOn").addEventListener("change",function(){ S.bgOn=this.checked; apply(); });
