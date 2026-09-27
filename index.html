@@ -79,7 +79,7 @@ body.nosec #sec{display:none;}
 /* ===== 左側：カレンダー（月表示・日曜始まり） ===== */
 #cal{width:min(100%,calc(360px*var(--cal-scale)));}
 .calHead,.calGrid{display:grid;grid-template-columns:repeat(7,1fr);gap:calc(4px*var(--cal-scale));}
-.calHead div{text-align:center;font-size:calc(15px*var(--cal-scale));color:var(--muted);padding-bottom:calc(6px*var(--cal-scale));}
+.calHead div{text-align:center;font-size:calc(15px*var(--cal-scale));color:var(--fg);padding-bottom:calc(6px*var(--cal-scale));}
 .calHead .sun{color:var(--cal-sun-color);}
 .calHead .sat{color:var(--cal-sat-color);}
 .calGrid{margin-top:calc(2px*var(--cal-scale));}
@@ -108,7 +108,7 @@ body.night #cal{display:none;}
 /* ===== 右側：時間ごとの予報カード ===== */
 #hours{display:flex;justify-content:space-between;}
 .hour{text-align:center;flex:1;}
-.hour .h{font-size:calc(22px*var(--weather-scale));color:var(--muted);}
+.hour .h{font-size:calc(22px*var(--weather-scale));color:var(--fg);}
 .hour svg{width:calc(42px*var(--weather-scale));height:calc(42px*var(--weather-scale));margin:calc(10px*var(--weather-scale)) 0 calc(6px*var(--weather-scale));}
 .hour .t{font-size:calc(28px*var(--weather-scale));font-weight:300;font-variant-numeric:tabular-nums;color:var(--hourfc-color);}
 .hour .p{font-size:calc(20px*var(--weather-scale));color:var(--rain);min-height:calc(26px*var(--weather-scale));}
@@ -230,7 +230,7 @@ body.night #hint{display:none;}
         <div id="nowRow">
           <div id="icon"></div>
           <div>
-            <div id="temp">--<span>°</span></div>
+            <div id="temp">--<span>℃</span></div>
             <div id="desc">天気を取得しています</div>
           </div>
         </div>
@@ -348,6 +348,14 @@ body.night #hint{display:none;}
       <div class="row"><label>ニュースの文字の大きさ</label>
         <input type="range" id="sNewsSize" min="14" max="40" step="1"><span class="val" id="vNewsSize"></span></div>
       <div class="row"><label>ニュースの文字色</label><input type="color" id="sNewsColor"></div>
+      <div class="sec">ニュース配信元（チェックを外すと非表示）</div>
+      <div class="row"><label>🌏 NHK（総合）</label><input type="checkbox" id="sNewsGenreNhk"></div>
+      <div class="row"><label>⚽ 国内サッカー</label><input type="checkbox" id="sNewsGenreSoccer"></div>
+      <div class="row"><label>🏈 NFL</label><input type="checkbox" id="sNewsGenreNfl"></div>
+      <div class="row"><label>⚾ メジャーリーグ</label><input type="checkbox" id="sNewsGenreMlb"></div>
+      <div class="row"><label>💻 IT</label><input type="checkbox" id="sNewsGenreIt"></div>
+      <div class="row"><label>🎤 エンタメ</label><input type="checkbox" id="sNewsGenreEntertainment"></div>
+      <div class="row"><label>🌏 Googleニュース（総合）</label><input type="checkbox" id="sNewsGenreGoogle"></div>
     </div>
   </div>
 
@@ -403,6 +411,7 @@ var DEFAULTS = {
   portraitClockSize:110, portraitDateSize:22, portraitWeatherScale:75, portraitCalScale:75,
   bgOn:true, bgDark:45, bgMorningStart:5, bgDayStart:8, bgEveningStart:17, bgNightStart:19,
   newsOn:true, newsUrl:"https://echo-dashboard-news.manattan-zukkyun.workers.dev/", newsRefresh:10,
+  newsGenres:{nhk:true, soccer:true, nfl:true, mlb:true, it:true, entertainment:true, google:true},
   newsSize:19, newsColor:"#7E8894"
 };
 var KEY_S = "dash.settings", KEY_W = "dash.weather", KEY_N = "dash.news";
@@ -568,6 +577,13 @@ function bgKeyFor(period,group){
   if (group==="cloud") return "cloud";
   return "sunny";
 }
+/* 特定の画像が読み込み失敗（ファイル名の大文字小文字違いなど）していた場合に、
+   近いカテゴリの画像へ自動的に振り替えるための対応表。
+   これにより1枚のファイルに問題があっても画面が真っ暗になるのを防ぐ。 */
+var BG_FALLBACK = {
+  cloud:"sunny", fog:"cloud", rain:"cloud", snow:"cloud", thunder:"rain",
+  nightCloud:"night", nightRain:"night", clear:"sunny", sunny:"clear"
+};
 function updateBackground(){
   var b1=$("bg1"), b2=$("bg2");
   if (!S.bgOn){ b1.className="bgLayer"; b2.className="bgLayer"; bgCurrentKey=null; return; }
@@ -575,6 +591,13 @@ function updateBackground(){
   var group=weatherBgGroup(lastWeatherCode);
   var key=bgKeyFor(period,group);
   if (!BG_IMG[key]){ console.warn("[背景画像] 未定義のキー: "+key); return; }
+  // 本来使うべき画像が読み込み失敗している場合は、近いカテゴリの画像へ振り替える
+  var triedKeys=[key];
+  while (bgLoaded[key]===false && BG_FALLBACK[key] && triedKeys.indexOf(BG_FALLBACK[key])<0){
+    console.warn("[背景画像] "+key+"（"+BG_IMG[key]+"）は読み込みに失敗しているため、"+BG_FALLBACK[key]+"に振り替えます");
+    key=BG_FALLBACK[key];
+    triedKeys.push(key);
+  }
   if (key===bgCurrentKey) return;
   if (bgLoaded[key]===false){
     console.warn("[背景画像] "+key+"（"+BG_IMG[key]+"）は読み込みに失敗しているため、切り替えをスキップしました");
@@ -722,10 +745,10 @@ function render(w){
   var now=w.current, code=WMO[now.weather_code]||["不明","cloud"];
   lastWeatherCode=now.weather_code; updateBackground();
   $("icon").innerHTML=svg(code[1]);
-  $("temp").innerHTML=Math.round(now.temperature_2m)+"<span>°</span>";
+  $("temp").innerHTML=Math.round(now.temperature_2m)+"<span>℃</span>";
   $("desc").textContent=code[0];
-  $("hilo").innerHTML="最高 <b>"+Math.round(w.daily.temperature_2m_max[0])+"°</b>　最低 <b>"+
-    Math.round(w.daily.temperature_2m_min[0])+"°</b>　体感 <b>"+Math.round(now.apparent_temperature)+"°</b>";
+  $("hilo").innerHTML="最高 <b>"+Math.round(w.daily.temperature_2m_max[0])+"℃</b>　最低 <b>"+
+    Math.round(w.daily.temperature_2m_min[0])+"℃</b>　体感 <b>"+Math.round(now.apparent_temperature)+"℃</b>";
 
   var h=w.hourly, base=new Date().getHours(), st=-1;
   for(var i=0;i<h.time.length;i++){ if(parseInt(h.time[i].substr(11,2),10)===base){ st=i; break; } }
@@ -736,7 +759,7 @@ function render(w){
     var j=st+k*3; if(j>=h.time.length) break;
     var hc=WMO[h.weather_code[j]]||["","cloud"], pop=h.precipitation_probability[j];
     out+='<div class="hour"><div class="h">'+parseInt(h.time[j].substr(11,2),10)+'時</div>'+svg(hc[1])+
-      '<div class="t">'+Math.round(h.temperature_2m[j])+'°</div>'+
+      '<div class="t">'+Math.round(h.temperature_2m[j])+'℃</div>'+
       '<div class="p">'+(pop>=20?pop+"%":"")+'</div></div>';
   }
   $("hours").innerHTML=out;
@@ -788,8 +811,12 @@ function loadNews(){
     return r.json();
   }).then(function(j){
     var items = j.items||[];
+    // ジャンルごとのON/OFF設定で絞り込む（genre情報が無い古いWorkerの場合はそのまま全件表示）
+    items = items.filter(function(it){
+      return !it.genre || S.newsGenres[it.genre]!==false;
+    });
     if(!items.length) return;
-    var text = items.map(function(it){ return it.title; }).join("　　●　　");
+    var text = items.map(function(it){ return it.title; }).join("　　　　");
     try{ localStorage.setItem(KEY_N, JSON.stringify({at:Date.now(), text:text})); }catch(e){}
     setNewsText(text);
   })["catch"](function(err){
@@ -845,6 +872,13 @@ function fillPanel(){
   $("sNewsOn").checked=S.newsOn; $("sNewsUrl").value=S.newsUrl; $("sNewsRefresh").value=S.newsRefresh;
   $("sNewsSize").value=S.newsSize; $("vNewsSize").textContent=S.newsSize+"px";
   $("sNewsColor").value=S.newsColor;
+  $("sNewsGenreNhk").checked=S.newsGenres.nhk;
+  $("sNewsGenreSoccer").checked=S.newsGenres.soccer;
+  $("sNewsGenreNfl").checked=S.newsGenres.nfl;
+  $("sNewsGenreMlb").checked=S.newsGenres.mlb;
+  $("sNewsGenreIt").checked=S.newsGenres.it;
+  $("sNewsGenreEntertainment").checked=S.newsGenres.entertainment;
+  $("sNewsGenreGoogle").checked=S.newsGenres.google;
   seg("segH",S.hpos); seg("segV",S.vpos);
 }
 function seg(id,v){
@@ -895,6 +929,16 @@ $("sNewsOn").addEventListener("change",function(){
   S.newsOn=this.checked; apply(); if(S.newsOn) loadNews();
 });
 $("sNewsUrl").addEventListener("change",function(){ S.newsUrl=this.value.trim(); });
+function bindNewsGenre(id,key){
+  $(id).addEventListener("change",function(){ S.newsGenres[key]=this.checked; loadNews(); });
+}
+bindNewsGenre("sNewsGenreNhk","nhk");
+bindNewsGenre("sNewsGenreSoccer","soccer");
+bindNewsGenre("sNewsGenreNfl","nfl");
+bindNewsGenre("sNewsGenreMlb","mlb");
+bindNewsGenre("sNewsGenreIt","it");
+bindNewsGenre("sNewsGenreEntertainment","entertainment");
+bindNewsGenre("sNewsGenreGoogle","google");
 
 (function(){
   var a=$("sNightStart"), b=$("sNightEnd"), o="";
