@@ -92,6 +92,7 @@ body.nosec #sec{display:none;}
 .calCell.today{background:rgba(255,255,255,.14);font-weight:500;}
 body.nocal #cal,body.nocal #evList{display:none;}
 #cellCal{flex-direction:column;}
+.calCell.sel{background:rgba(242,193,78,.28);}
 .calCell.hasEv{box-shadow:inset 0 0 0 2px #F2C14E;border-radius:50%;}
 #evList{width:min(100%,calc(360px*var(--cal-scale)));margin-top:calc(14px*var(--cal-scale));font-size:calc(17px*var(--cal-scale));color:var(--fg);line-height:1.5;}
 #evList .evRow{padding:calc(2px*var(--cal-scale)) 0;}
@@ -650,7 +651,7 @@ function tickClock(){
   if(d.getDate()!==lastDay){
     lastDay=d.getDate();
     $("date").innerHTML="<span id=\"md\">"+(d.getMonth()+1)+"月"+d.getDate()+"日</span> <span id=\"dow\">"+DOW[d.getDay()]+"曜日</span>";
-    loadHolidays(); calOffset=0; renderCalendar();
+    loadHolidays(); calOffset=0; selDate=null; renderCalendar();
   }
 }
 
@@ -676,17 +677,27 @@ function daysInMonth(y, mIdx){ return new Date(y, mIdx+1, 0).getDate(); }
 /* ===== Googleカレンダーの予定（Apps Script経由・タイトルと日付のみ取得） ===== */
 var EVENTS = {}, EV_KEY = "dash.events";
 function todayStr(){ var d=new Date(); return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate()); }
+var selDate = null, selTimer = null;
+function selectDate(ds){
+  selDate = (ds===selDate || ds===todayStr()) ? null : ds; // 同じ日／今日をもう一度タップで今日の表示に戻る
+  clearTimeout(selTimer);
+  if(selDate) selTimer = setTimeout(function(){ selDate=null; renderCalendar(); }, 60000); // 60秒で今日に戻る
+  renderCalendar();
+}
 function renderEvents(){
   var box=$("evList"); if(!box) return;
   while(box.firstChild) box.removeChild(box.firstChild);
-  var list=EVENTS[todayStr()]||[], day=new Date().getDate();
+  var target=selDate||todayStr(), isToday=(target===todayStr());
+  var mo=parseInt(target.slice(5,7),10), dd=parseInt(target.slice(8,10),10);
+  var label=(isToday?"":mo+"月")+dd+"日";
+  var list=EVENTS[target]||[];
   if(!list.length){
-    if(S.calSyncUrl){ var n=document.createElement("div"); n.className="evRow evNone"; n.textContent="今日の予定はありません"; box.appendChild(n); }
+    if(S.calSyncUrl||!isToday){ var n=document.createElement("div"); n.className="evRow evNone"; n.textContent=(isToday?"今日":label)+"の予定はありません"; box.appendChild(n); }
     return;
   }
   list.forEach(function(e){
     var row=document.createElement("div"); row.className="evRow";
-    var a=document.createElement("span"); a.className="evDay"; a.textContent=day+"日"+(e.tm?" "+e.tm:"");
+    var a=document.createElement("span"); a.className="evDay"; a.textContent=label+(e.tm?" "+e.tm:"");
     var b=document.createElement("span"); b.textContent=e.t;
     row.appendChild(a); row.appendChild(b); box.appendChild(row);
   });
@@ -722,7 +733,7 @@ function renderCalendar(){
   for(var d=1;d<=totalDays;d++){
     var dow=(startDow+d-1)%7;
     var dateStr = y+"-"+pad(m+1)+"-"+pad(d);
-    cells.push({day:d, other:false, dow:dow, today:(calOffset===0 && d===now.getDate()), holiday:!!HOLIDAYS[dateStr], ev:!!EVENTS[dateStr]});
+    cells.push({day:d, other:false, dow:dow, today:(calOffset===0 && d===now.getDate()), holiday:!!HOLIDAYS[dateStr], ev:!!EVENTS[dateStr], ds:dateStr, sel:(dateStr===selDate)});
   }
   var rem = cells.length % 7;
   if(rem>0) for(var j=1;j<=7-rem;j++) cells.push({day:j, other:true});
@@ -735,12 +746,13 @@ function renderCalendar(){
     if(c.other) cls.push("other");
     if(c.today) cls.push("today");
     if(c.ev) cls.push("hasEv");
+    if(c.sel) cls.push("sel");
     if(!c.other){
       if(c.holiday) cls.push("holiday");
       else if(c.dow===0) cls.push("sun");
       else if(c.dow===6) cls.push("sat");
     }
-    return '<div class="calCell '+cls.join(" ")+'">'+c.day+'</div>';
+    return '<div class="calCell '+cls.join(" ")+'"'+(c.ds?' data-d="'+c.ds+'"':'')+'>'+c.day+'</div>';
   }).join("");
   renderEvents();
   el.innerHTML='<div class="calTitle">'+y+'年'+(m+1)+'月</div><div class="calHead">'+head+'</div><div class="calGrid">'+grid+'</div>';
@@ -1087,6 +1099,13 @@ $("screen").addEventListener("click",function(){
   });
   c.addEventListener("dblclick",function(){ if(calOffset!==0) setCalOffset(0); });
 })();
+
+/* ===== 日付をタップ → その日の予定を下に表示 ===== */
+$("cal").addEventListener("click",function(e){
+  var t=e.target;
+  while(t && t!==this && !(t.getAttribute && t.getAttribute("data-d"))) t=t.parentNode;
+  if(t && t!==this) selectDate(t.getAttribute("data-d"));
+});
 
 /* ===== 画面サイズに合わせて拡大縮小（1280×800基準） ===== */
 var REF_W=1280, REF_H=800;
