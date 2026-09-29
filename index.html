@@ -22,7 +22,7 @@
   --weather-scale:1;
   --clock-font:"Roboto","Noto Sans CJK JP","Droid Sans Japanese",sans-serif;
   --date-font:"Roboto","Noto Sans CJK JP","Droid Sans Japanese",sans-serif;
-  --cal-scale:1; --cal-sun-color:#E8706F; --cal-sat-color:#6F9EE8; --cal-holiday-color:#E8706F;
+  --cal-scale:1; --cal-sun-color:#E8706F; --cal-sat-color:#6F9EE8; --cal-holiday-color:#E8706F; --cal-ev-color:#5CD68A;
   --bg-dark:.45;
   --news-size:19px; --news-color:#7E8894;
 }
@@ -93,12 +93,12 @@ body.nosec #sec{display:none;}
 body.nocal #cal,body.nocal #evList{display:none;}
 #cellCal{flex-direction:column;}
 .calCell.sel{background:rgba(242,193,78,.28);}
-.calCell.hasEv{box-shadow:inset 0 0 0 2px #F2C14E;border-radius:50%;}
+.calCell.hasEv{color:var(--cal-ev-color);font-weight:500;}
 #evList{width:min(100%,calc(360px*var(--cal-scale)));margin-top:calc(14px*var(--cal-scale));font-size:calc(17px*var(--cal-scale));color:var(--fg);line-height:1.5;}
 #evList .evRow{padding:calc(2px*var(--cal-scale)) 0;}
-#evList .evDay{color:#F2C14E;margin-right:.5em;}
+#evList .evDay{color:var(--cal-ev-color);margin-right:.5em;}
 #evList .evNone{opacity:.4;}
-.calTitle{text-align:center;font-size:calc(16px*var(--cal-scale));color:var(--fg);opacity:.75;padding-bottom:calc(6px*var(--cal-scale));}
+.calTitle{text-align:center;font-size:calc(var(--cal-title-size,16px)*var(--cal-scale));color:var(--fg);opacity:.75;padding-bottom:calc(6px*var(--cal-scale));}
 #cellCal{touch-action:pan-y;}
 body.night #cal{display:none;}
 
@@ -123,8 +123,8 @@ body.night #cal{display:none;}
 .hour .p{font-size:calc(20px*var(--weather-scale));color:var(--rain);min-height:calc(26px*var(--weather-scale));}
 
 /* ===== 右側：降水確率アラート（「○時ごろから雨」） ===== */
-#alert{display:none;padding:calc(16px*var(--weather-scale)) calc(22px*var(--weather-scale));border-left:3px solid var(--rain);
-  background:rgba(111,180,232,.10);font-size:calc(27px*var(--weather-scale));color:var(--rain);border-radius:0 6px 6px 0;}
+#alert{display:none;padding:calc(16px*var(--weather-scale)) calc(22px*var(--weather-scale));
+  background:transparent;font-size:calc(27px*var(--weather-scale));color:var(--rain);border-radius:0 6px 6px 0;}
 #alert.on{display:block;}
 
 /* ===== 右側：通信エラー時の注意書き ===== */
@@ -313,9 +313,12 @@ body.night #hint{display:none;}
       <div class="row"><label>カレンダーを表示する</label><input type="checkbox" id="sCalOn"></div>
       <div class="row"><label>カレンダーの大きさ</label>
         <input type="range" id="sCalScale" min="60" max="160" step="5"><span class="val" id="vCalScale"></span></div>
+      <div class="row"><label>年月表示（October 2026）の大きさ</label>
+        <input type="range" id="sCalTitle" min="10" max="60" step="1"><span class="val" id="vCalTitle"></span></div>
       <div class="row"><label>日曜日の色</label><input type="color" id="sCalSun"></div>
       <div class="row"><label>土曜日の色</label><input type="color" id="sCalSat"></div>
       <div class="row"><label>祝日の色</label><input type="color" id="sCalHoliday"></div>
+      <div class="row"><label>予定がある日の色</label><input type="color" id="sCalEv"></div>
     </div>
 
     <div>
@@ -422,7 +425,7 @@ var DEFAULTS = {
   nightOn:true, nightStart:1, nightEnd:6, nightBr:22,
   weatherOn:true, lat:36.0835, lon:140.0764, refresh:15, rainThreshold:50,
   weatherScale:100, tempColor:"#EEF1F5", descColor:"#EEF1F5", hiloColor:"#7E8894", hourFcColor:"#EEF1F5",
-  calendarOn:true, calScale:100, calSunColor:"#E8706F", calSatColor:"#6F9EE8", calHolidayColor:"#E8706F",
+  calendarOn:true, calScale:100, calSunColor:"#E8706F", calSatColor:"#6F9EE8", calHolidayColor:"#E8706F", calEvColor:"#5CD68A", calTitleSize:16,
   portraitAuto:false,
   portraitClockSize:110, portraitDateSize:22, portraitWeatherScale:75, portraitCalScale:75,
   bgOn:true, bgDark:45, bgMorningStart:5, bgDayStart:8, bgEveningStart:17, bgNightStart:19,
@@ -476,6 +479,8 @@ function apply(){
   r.setProperty("--cal-sun-color", S.calSunColor);
   r.setProperty("--cal-sat-color", S.calSatColor);
   r.setProperty("--cal-holiday-color", S.calHolidayColor);
+  r.setProperty("--cal-ev-color", S.calEvColor);
+  r.setProperty("--cal-title-size", S.calTitleSize + "px");
   r.setProperty("--bg-dark", S.bgDark / 100);
   r.setProperty("--news-size", S.newsSize + "px");
   r.setProperty("--news-color", S.newsColor);
@@ -635,6 +640,10 @@ function updateBackground(){
 
 /* ===== 時計・日付の表示更新 ===== */
 var DOW=["日","月","火","水","木","金","土"];
+var MON_L=["January","February","March","April","May","June","July","August","September","October","November","December"];
+var MON_S=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+var DOW_L=["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+var DOW_S=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 var lastMin=-1,lastDay=-1,isNight=null,isPortrait=false;
 function pad(n){ return n<10?"0"+n:""+n; }
 
@@ -650,7 +659,7 @@ function tickClock(){
   }
   if(d.getDate()!==lastDay){
     lastDay=d.getDate();
-    $("date").innerHTML="<span id=\"md\">"+(d.getMonth()+1)+"月"+d.getDate()+"日</span> <span id=\"dow\">"+DOW[d.getDay()]+"曜日</span>";
+    $("date").innerHTML="<span id=\"md\">"+MON_L[d.getMonth()]+" "+d.getDate()+"</span> <span id=\"dow\">"+DOW_L[d.getDay()]+"</span>";
     loadHolidays(); calOffset=0; selDate=null; renderCalendar();
   }
 }
@@ -689,10 +698,10 @@ function renderEvents(){
   while(box.firstChild) box.removeChild(box.firstChild);
   var target=selDate||todayStr(), isToday=(target===todayStr());
   var mo=parseInt(target.slice(5,7),10), dd=parseInt(target.slice(8,10),10);
-  var label=(isToday?"":mo+"月")+dd+"日";
+  var label=MON_S[mo-1]+" "+dd;
   var list=EVENTS[target]||[];
   if(!list.length){
-    if(S.calSyncUrl||!isToday){ var n=document.createElement("div"); n.className="evRow evNone"; n.textContent=(isToday?"今日":label)+"の予定はありません"; box.appendChild(n); }
+    if(S.calSyncUrl||!isToday){ var n=document.createElement("div"); n.className="evRow evNone"; n.textContent=isToday?"No events today":"No events on "+label; box.appendChild(n); }
     return;
   }
   list.forEach(function(e){
@@ -738,7 +747,7 @@ function renderCalendar(){
   var rem = cells.length % 7;
   if(rem>0) for(var j=1;j<=7-rem;j++) cells.push({day:j, other:true});
 
-  var head = ["日","月","火","水","木","金","土"].map(function(x,i){
+  var head = DOW_S.map(function(x,i){
     return '<div class="'+(i===0?"sun":i===6?"sat":"")+'">'+x+'</div>';
   }).join("");
   var grid = cells.map(function(c){
@@ -755,7 +764,7 @@ function renderCalendar(){
     return '<div class="calCell '+cls.join(" ")+'"'+(c.ds?' data-d="'+c.ds+'"':'')+'>'+c.day+'</div>';
   }).join("");
   renderEvents();
-  el.innerHTML='<div class="calTitle">'+y+'年'+(m+1)+'月</div><div class="calHead">'+head+'</div><div class="calGrid">'+grid+'</div>';
+  el.innerHTML='<div class="calTitle">'+MON_L[m]+' '+y+'</div><div class="calHead">'+head+'</div><div class="calGrid">'+grid+'</div>';
 }
 
 /* ===== 夜間モードの判定・切り替え ===== */
@@ -839,7 +848,7 @@ function checkRain(h,st){
   for(var k=1;k<=6;k++){
     var j=st+k; if(j>=h.time.length) break;
     if(h.precipitation_probability[j]>=S.rainThreshold){
-      el.textContent=parseInt(h.time[j].substr(11,2),10)+"時ごろから雨　降水確率 "+h.precipitation_probability[j]+"%";
+      el.textContent="\u2614 "+parseInt(h.time[j].substr(11,2),10)+"時ごろから雨　降水確率 "+h.precipitation_probability[j]+"%";
       el.className="on"; return;
     }
   }
@@ -936,8 +945,9 @@ function fillPanel(){
   $("sBgMorning").value=S.bgMorningStart; $("sBgDay").value=S.bgDayStart;
   $("sBgEvening").value=S.bgEveningStart; $("sBgNight").value=S.bgNightStart;
   $("sCalOn").checked=S.calendarOn;
+  $("sCalTitle").value=S.calTitleSize; $("vCalTitle").textContent=S.calTitleSize+"px";
   $("sCalScale").value=S.calScale; $("vCalScale").textContent=S.calScale+"%";
-  $("sCalSun").value=S.calSunColor; $("sCalSat").value=S.calSatColor; $("sCalHoliday").value=S.calHolidayColor;
+  $("sCalSun").value=S.calSunColor; $("sCalSat").value=S.calSatColor; $("sCalHoliday").value=S.calHolidayColor; $("sCalEv").value=S.calEvColor;
   $("sCalUrl").value=S.calSyncUrl||""; $("sCalToken").value=S.calSyncToken||"";
   $("sNewsOn").checked=S.newsOn; $("sNewsUrl").value=S.newsUrl; $("sNewsRefresh").value=S.newsRefresh;
   $("sNewsSize").value=S.newsSize; $("vNewsSize").textContent=S.newsSize+"px";
@@ -968,6 +978,7 @@ bindRange("sDate","dateSize","vDate","px");
 bindRange("sNightBr","nightBr","vNightBr","%");
 bindRange("sWeatherScale","weatherScale","vWeatherScale","%");
 bindRange("sCalScale","calScale","vCalScale","%");
+bindRange("sCalTitle","calTitleSize","vCalTitle","px");
 bindRange("sPortraitClock","portraitClockSize","vPortraitClock","px");
 bindRange("sPortraitDate","portraitDateSize","vPortraitDate","px");
 bindRange("sPortraitWeatherScale","portraitWeatherScale","vPortraitWeatherScale","%");
@@ -987,7 +998,7 @@ bindColor("sHourColor","hourColor"); bindColor("sMinColor","minColor"); bindColo
 bindColor("sDateColor","dateColor"); bindColor("sDowColor","dowColor");
 bindColor("sTempColor","tempColor"); bindColor("sDescColor","descColor");
 bindColor("sHiloColor","hiloColor"); bindColor("sHourFcColor","hourFcColor");
-bindColor("sCalSun","calSunColor"); bindColor("sCalSat","calSatColor"); bindColor("sCalHoliday","calHolidayColor");
+bindColor("sCalSun","calSunColor"); bindColor("sCalSat","calSatColor"); bindColor("sCalHoliday","calHolidayColor"); bindColor("sCalEv","calEvColor");
 bindColor("sNewsColor","newsColor");
 $("sCalOn").addEventListener("change",function(){ S.calendarOn=this.checked; apply(); });
 $("sPortraitAuto").addEventListener("change",function(){ S.portraitAuto=this.checked; apply(); });
