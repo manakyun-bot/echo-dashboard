@@ -659,7 +659,7 @@ function tickClock(){
   }
   if(d.getDate()!==lastDay){
     lastDay=d.getDate();
-    $("date").innerHTML="<span id=\"md\">"+MON_L[d.getMonth()]+" "+d.getDate()+"</span> <span id=\"dow\">"+DOW_L[d.getDay()]+"</span>";
+    $("date").innerHTML="<span id=\"md\">"+MON_S[d.getMonth()].toUpperCase()+" "+d.getDate()+"</span> <span id=\"dow\">"+DOW_S[d.getDay()]+"</span>";
     loadHolidays(); calOffset=0; selDate=null; renderCalendar();
   }
 }
@@ -698,10 +698,10 @@ function renderEvents(){
   while(box.firstChild) box.removeChild(box.firstChild);
   var target=selDate||todayStr(), isToday=(target===todayStr());
   var mo=parseInt(target.slice(5,7),10), dd=parseInt(target.slice(8,10),10);
-  var label=MON_S[mo-1]+" "+dd;
+  var label=""+dd;
   var list=EVENTS[target]||[];
   if(!list.length){
-    if(S.calSyncUrl||!isToday){ var n=document.createElement("div"); n.className="evRow evNone"; n.textContent=isToday?"No events today":"No events on "+label; box.appendChild(n); }
+    if(S.calSyncUrl||!isToday){ var n=document.createElement("div"); n.className="evRow evNone"; n.textContent=isToday?"No events today":label+" No events"; box.appendChild(n); }
     return;
   }
   list.forEach(function(e){
@@ -764,7 +764,7 @@ function renderCalendar(){
     return '<div class="calCell '+cls.join(" ")+'"'+(c.ds?' data-d="'+c.ds+'"':'')+'>'+c.day+'</div>';
   }).join("");
   renderEvents();
-  el.innerHTML='<div class="calTitle">'+MON_L[m]+' '+y+'</div><div class="calHead">'+head+'</div><div class="calGrid">'+grid+'</div>';
+  el.innerHTML='<div class="calTitle">'+MON_L[m].toUpperCase()+' '+y+'</div><div class="calHead">'+head+'</div><div class="calGrid">'+grid+'</div>';
 }
 
 /* ===== 夜間モードの判定・切り替え ===== */
