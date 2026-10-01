@@ -75,7 +75,7 @@ body.portrait #cellClock{align-items:var(--hpos);justify-content:var(--vpos);tex
 
 #clock{font-family:var(--clock-font);font-size:var(--clock-size);font-weight:200;line-height:.92;letter-spacing:-.035em;font-variant-numeric:tabular-nums;}
 /* 横置き：時計を少し下げ、文字間を広げる（--clock-offset を増やすと下がる／--clock-shift-x を増やすと右に寄る／--clock-spacing を増やすと間隔が広がる） */
-body:not(.portrait):not(.night){--clock-offset:26px;--clock-shift-x:60px;--clock-spacing:.03em;}
+body:not(.portrait):not(.night){--clock-offset:26px;--clock-shift-x:50px;--clock-spacing:.03em;}
 body:not(.portrait):not(.night) #clock{position:relative;top:var(--clock-offset);left:var(--clock-shift-x);letter-spacing:var(--clock-spacing);}
 #hh{color:var(--hh-color);}
 #mm{color:var(--mm-color);}
